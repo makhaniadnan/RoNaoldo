@@ -131,7 +131,8 @@ public:
     // read image and extract area of interest from template img
     try
     {
-        image_template = imread("/home/hrs2015/catkin_ws/src/RoNAOldo/images/templateImg.jpg");
+        image_template = imread("/home/hrs2015/catkin_ws/src/RoNaoldo/images/templateImg.jpg");
+
 
         if( image_template.empty() )  // Check for invalid input
         {
@@ -145,6 +146,40 @@ public:
     catch (cv_bridge::Exception& e) {
         ROS_ERROR("Couldn't extract ROI");
     }
+    // Convert to HSV ROI :
+    try {
+        cvtColor(image_ROI,image_ROI_hsv,CV_BGR2HSV);
+        split(image_ROI_hsv,v_channel);
+        threshold(v_channel[1], mask, 70, 255, THRESH_BINARY);
+        calcHist(&image_ROI_hsv,1,chnls,mask,hist, 1,hsize, ranges); //calculate histogram
+	      normalize(hist, hist, 0, 255, NORM_MINMAX, -1, Mat() ); // normalize histogram
+
+        //below commented code is for printing histogram
+	      int rows = 64;
+        //default height size
+        int cols = hist.rows;
+        //get the width size from the histogram
+        float scaleX = 3;
+        float scaleY = 3;
+        Mat histImg = Mat::zeros(rows*scaleX, cols*scaleY, CV_8UC3);
+
+        for(int i=0; i<cols-1; i++) {
+            float histValue = hist.at<float>(i,0);
+            float nextValue = hist.at<float>(i+1,0);
+            Point pt1 = Point(i*scaleX, rows*scaleY);
+            Point pt2 = Point(i*scaleX+scaleX, rows*scaleY);
+            Point pt3 = Point(i*scaleX+scaleX, (rows-nextValue*rows/255)*scaleY);
+            Point pt4 = Point(i*scaleX, (rows-nextValue*rows/255)*scaleY);
+            int numPts = 5;
+            Point pts[] = {pt1, pt2, pt3, pt4, pt1};
+            fillConvexPoly(histImg, pts, numPts, Scalar(255,255,255));
+        }
+        imshow("hist", histImg);
+    }
+    catch (...) {
+        ROS_ERROR("Error in computing histogram!");
+    }
+
 
     stop_thread=false;
     spin_thread=new boost::thread(&spinThread);
@@ -164,9 +199,9 @@ public:
       ros::Rate rate_sleep(10);
       while(nh_.ok())
       {
-        //msg.ballArea = count;
-        //count++;
-        //visionPub.publish(msg);
+        msg.ballArea = count;
+        count++;
+        visionPub.publish(msg);
         ball_top_sub = it.subscribe("nao/nao_robot/camera/top/camera/image_raw", 1, &Vision::detect_Ball, this);
         rate_sleep.sleep();
       }
@@ -206,6 +241,10 @@ int main(int argc, char** argv)
     ros::init(argc, argv, "RoNAOldo_vision");
 
     ros::NodeHandle n;
+    namedWindow("ROI");
+    namedWindow("hist");
+
+    startWindowThread();
 
     Vision vNode(n);
     vNode.main_loop();
