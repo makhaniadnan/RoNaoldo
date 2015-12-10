@@ -131,14 +131,17 @@ public:
     // read image and extract area of interest from template img
     try
     {
-        image_template = imread("/home/hrs2015/catkin_ws/src/RoNaoldo/images/templateImg.jpg");
+        //image_template = imread("/home/hrs2015/catkin_ws/src/RoNaoldo/images/mor_temp.jpg");
+        image_template = imread("/home/hrs2015/catkin_ws/src/RoNaoldo/images/nit_temp.jpg");
 
 
         if( image_template.empty() )  // Check for invalid input
         {
             cout << "Could not open or find the image" << endl ;
         }
-        region_of_interest = Rect(250,253,189,189);
+        //region_of_interest = Rect(250,253,189,189);  // for morning
+        region_of_interest = Rect(269,269,163,163);  // for night
+
         image_ROI = image_template(region_of_interest);
         imshow("ROI", image_ROI);
         waitKey(30);
@@ -222,7 +225,22 @@ public:
       {
           ROS_ERROR("Could not convert from '%s' to 'bgr8'.", msg->encoding.c_str());
       }
-      // read image and extract area of interest
+      // Back Projection + mean/cam shift tracking:
+      try {
+          cvtColor(image,image_hsv,CV_BGR2HSV);
+          split(image_hsv,image_channel);
+          threshold(image_channel[1], image_mask, 70, 255, THRESH_BINARY);
+          calcBackProject( &image_channel[0], 1, chnls, hist, backproj, ranges); //calculate backprojection
+          bitwise_and(backproj,image_mask,backproj);
+          //meanShift(backproj,region_of_interest, TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 10, 1));
+          CamShift(backproj,region_of_interest, TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 10, 1));
+          rectangle(image, region_of_interest,1,2,1,0);
+          imshow("Tracking", image);
+          waitKey(30);
+      }
+      catch (...) {
+          ROS_ERROR("Error in meanshift/ camshift!");
+      }
 
 
     }
@@ -243,6 +261,7 @@ int main(int argc, char** argv)
     ros::NodeHandle n;
     namedWindow("ROI");
     namedWindow("hist");
+    namedWindow("Tracking");
 
     startWindowThread();
 
