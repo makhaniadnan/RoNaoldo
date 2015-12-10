@@ -54,6 +54,13 @@ Then the next image will be processed.
 subscripte to rostopic to get ball position in pixels off center
 
 ```
+#run in commnad line
+rostopic echo /ball/offMiddle
+```
+
+or in your c-code
+
+```
 #include <std_msgs/Float32.h>
 
 //...
