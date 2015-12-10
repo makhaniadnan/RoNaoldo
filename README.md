@@ -37,5 +37,13 @@ Here, you can see an example image of the viewer debug output.
 
 ![Image](screenshots/vision-marker-1.png?raw=true)
 
+The *blue line* shows the horizontal center between the two aruco marker's centers.
+
+The *green circle* shows the ball position.
+
+The *red boxes* show the recgonized aruco markers.
+
+
+
 In order to see the next image, you have to press a key on the image viewer.
 Then the next image will be processed.
