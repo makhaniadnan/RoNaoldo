@@ -47,3 +47,18 @@ The *red boxes* show the recgonized aruco markers.
 
 In order to see the next image, you have to press a key on the image viewer.
 Then the next image will be processed.
+
+
+### Subscribe to ball position
+
+subscripte to rostopic to get ball position in pixels off center
+
+```
+#include <std_msgs/Float32.h>
+
+//...
+
+// in callback funtion for topic ball/offMiddle
+float32 offMiddle = msg.data;
+
+```

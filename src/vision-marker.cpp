@@ -10,12 +10,51 @@
 
 //include custom messages
 #include "RoNAOldo/controlMsg.h"
+#include <std_msgs/Float32.h>
 
 namespace vision {
+class Marker {
+public:
 
 	aruco::CameraParameters cameraParameters;
 
 	cv::Point2f lastBallCenter;
+
+	ros::NodeHandle _nh;
+
+	ros::Publisher publisherOffMiddle;
+
+	image_transport::Subscriber subscriberImage;
+
+	ros::Subscriber subscriberBallPosition;   	
+
+	Marker(ros::NodeHandle n)
+	{
+		_nh = n;
+
+
+		//publish ballOffMiddle
+		publisherOffMiddle = _nh.advertise<std_msgs::Float32>("ball/offMiddle", 10);
+
+		 initCameraParameters();
+
+		 cv::namedWindow("3D marker position");
+		 cv::startWindowThread();
+		 image_transport::ImageTransport it(_nh);
+		 subscriberImage = it.subscribe("image", 1, &Marker::markerImageCallback, this);
+
+		 //subscribe to ball position
+		 subscriberBallPosition = _nh.subscribe("ball/imagePosition", 1, &Marker::ballPositionCallback, this);
+
+		ROS_INFO("init Marker done");
+	}
+
+	~Marker()
+	{
+	  cv::destroyWindow("3D marker position");
+
+	}
+
 
 	void initCameraParameters(void)
 	{
@@ -143,6 +182,13 @@ namespace vision {
 			} else {
 				ROS_INFO("Ball is LEFT of middle: %f pixels", -ballOffMiddle);
 			}
+
+
+			//publish our message
+			std_msgs::Float32 msg;
+			msg.data = ballOffMiddle;
+
+			publisherOffMiddle.publish(msg);
 		}
 
 	    // Show image:
@@ -162,6 +208,7 @@ namespace vision {
 
 	}
 
+}; //class
 } //namespace
 
 int main(int argc, char **argv)
@@ -169,20 +216,11 @@ int main(int argc, char **argv)
   ros::init(argc, argv, "vision_marker");
   ros::NodeHandle nh;
 
-  vision::initCameraParameters();
+  vision::Marker* marker = new vision::Marker(nh);
 
-  cv::namedWindow("3D marker position");
-  cv::startWindowThread();
-  image_transport::ImageTransport it(nh);
-  image_transport::Subscriber sub = it.subscribe("image", 1, vision::markerImageCallback);
-
-  //subscribe to ball position
-  ros::Subscriber sub2 = nh.subscribe("ballposition", 1, vision::ballPositionCallback);
-
-
-  ROS_INFO("start spin now"); 
-
+  ROS_INFO("spin now");
   ros::spin();
 
-  cv::destroyWindow("3D marker position");
+
+  return 0;
 }
