@@ -43,6 +43,10 @@
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#include "cv.h"
+#include <opencv2/core/core.hpp>
+#include "opencv2/features2d/features2d.hpp"
+
 
 // Include customn messages:
 #include "RoNAOldo/visionMsg.h"
@@ -91,6 +95,23 @@ public:
     // Image transporter
     image_transport::ImageTransport it;
 
+    // Images and other variables required for template matching:
+    Mat image;
+    Mat image_hsv;
+    Mat image_template;
+    Mat image_ROI;
+    Mat image_ROI_hsv;
+    Rect region_of_interest;
+    vector<cv::Mat> v_channel, image_channel;
+    Mat mask, image_mask;
+    MatND hist, backproj;
+    float hranges[2]= { 0, 180 };
+    const float* ranges[1] = { hranges };
+    int hsize[1] = { 180 };
+    int chnls[1] = {0};
+
+
+
     // Counter: <just for testing>
     int count;
 
@@ -103,6 +124,27 @@ public:
 		visionPub = nh_.advertise<RoNAOldo::visionMsg>("visionMessage", 10);
 
 		count = 0;
+    //Ball tracking initializations
+
+
+
+    // read image and extract area of interest from template img
+    try
+    {
+        image_template = imread("/home/hrs2015/catkin_ws/src/RoNAOldo/images/templateImg.jpg");
+
+        if( image_template.empty() )  // Check for invalid input
+        {
+            cout << "Could not open or find the image" << endl ;
+        }
+        region_of_interest = Rect(250,253,189,189);
+        image_ROI = image_template(region_of_interest);
+        imshow("ROI", image_ROI);
+        waitKey(30);
+    }
+    catch (cv_bridge::Exception& e) {
+        ROS_ERROR("Couldn't extract ROI");
+    }
 
     stop_thread=false;
     spin_thread=new boost::thread(&spinThread);
@@ -132,20 +174,7 @@ public:
     }
     void detect_Ball(const sensor_msgs::ImageConstPtr& msg)
     {
-      // Images:
-      Mat image;
-      Mat image_hsv;
-      Mat image_template;
-      Mat image_ROI;
-      Mat image_ROI_hsv;
-      Rect region_of_interest;
-      vector<cv::Mat> v_channel, image_channel;
-      Mat mask, image_mask;
-      MatND hist, backproj;
-      float hranges[] = { 0, 180 };
-      const float* ranges[] = { hranges };
-      int hsize[] = { 180 };
-      int chnls[] = {0};
+
 
 
       // Convert to bgr8 and display:
