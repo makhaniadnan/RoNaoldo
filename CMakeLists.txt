@@ -6,13 +6,13 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 find_package(catkin REQUIRED cmake_modules COMPONENTS
   roscpp
   std_msgs
-  naoqi_bridge_msgs
   std_srvs
   tf
   actionlib_msgs
   cv_bridge
   image_transport
   message_generation
+  aruco
 )
 
 add_message_files(
@@ -37,13 +37,13 @@ add_executable(RoNAOldo_vision src/vision.cpp)
 target_link_libraries(RoNAOldo_vision ${catkin_LIBRARIES})
 add_dependencies(RoNAOldo_vision RoNAOldo_generate_message_cpp)
 
+add_executable(RoNAOldo_vision_marker src/vision-marker.cpp)
+target_link_libraries(RoNAOldo_vision_marker ${catkin_LIBRARIES})
+add_dependencies(RoNAOldo_vision_marker RoNAOldo_generate_message_cpp)
+
 add_executable(RoNAOldo_control src/control.cpp)
 target_link_libraries(RoNAOldo_control ${catkin_LIBRARIES})
 add_dependencies(RoNAOldo_control RoNAOldo_generate_message_cpp)
-
-find_package(Eigen REQUIRED)
-target_link_libraries(RoNAOldo_vision ${Eigen_LIBRARIES})
-target_link_libraries(RoNAOldo_control ${Eigen_LIBRARIES})
 
 find_package(Boost REQUIRED COMPONENTS system thread)
 include_directories(${Boost_INCLUDE_DIRS})
@@ -58,5 +58,6 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} /usr/local/lib/cmake)
 
 find_package(aruco REQUIRED)
 target_link_libraries(RoNAOldo_vision  ${aruco_LIBS})
+target_link_libraries(RoNAOldo_vision_marker  ${aruco_LIBS})
 target_link_libraries(RoNAOldo_control  ${aruco_LIBS})
 
