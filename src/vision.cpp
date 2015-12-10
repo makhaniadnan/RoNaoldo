@@ -79,13 +79,22 @@ public:
     // publisher
     ros::Publisher visionPub;
 
+    //Image tope camera subscriber for ball
+    image_transport::Subscriber ball_top_sub;
+
     // Spin Thread:
     boost::thread *spin_thread;
+
+    //Message container to be sent to the control part
+    RoNAOldo::visionMsg msg;
+
+    // Image transporter
+    image_transport::ImageTransport it;
 
     // Counter: <just for testing>
     int count;
 
-    Vision(NodeHandle n) {
+    Vision(NodeHandle n): it(nh_) {
 
 		nh_ = n;
 
@@ -108,18 +117,52 @@ public:
 
     void main_loop() {
 
-      RoNAOldo::visionMsg msg;
-      int count = 0;
+
+      //int count = 0;
       ros::Rate rate_sleep(10);
       while(nh_.ok())
       {
-        msg.ballArea = count;
-        count++;
-        visionPub.publish(msg);
+        //msg.ballArea = count;
+        //count++;
+        //visionPub.publish(msg);
+        ball_top_sub = it.subscribe("nao/nao_robot/camera/top/camera/image_raw", 1, &Vision::detect_Ball, this);
         rate_sleep.sleep();
       }
 
     }
+    void detect_Ball(const sensor_msgs::ImageConstPtr& msg)
+    {
+      // Images:
+      Mat image;
+      Mat image_hsv;
+      Mat image_template;
+      Mat image_ROI;
+      Mat image_ROI_hsv;
+      Rect region_of_interest;
+      vector<cv::Mat> v_channel, image_channel;
+      Mat mask, image_mask;
+      MatND hist, backproj;
+      float hranges[] = { 0, 180 };
+      const float* ranges[] = { hranges };
+      int hsize[] = { 180 };
+      int chnls[] = {0};
+
+
+      // Convert to bgr8 and display:
+      try
+      {
+          //bgr8: CV_8UC3, color image with blue-green-red color order
+          image = cv_bridge::toCvShare(msg, "bgr8")->image;
+      }
+      catch (cv_bridge::Exception& e)
+      {
+          ROS_ERROR("Could not convert from '%s' to 'bgr8'.", msg->encoding.c_str());
+      }
+      // read image and extract area of interest
+
+
+    }
+
 
     void controlMessageCallback(const RoNAOldo::controlMsg::ConstPtr &inMessage) {
 

@@ -114,15 +114,6 @@ public:
     void visionMessageCallback(const RoNAOldo::visionMsg::ConstPtr &inMessage) {
 
     cout << "Recieved: " << inMessage->ballArea << endl;
-		/*RoNAOldo::controlMsg outMessage;
-		if(inMessage->ballPosition < 20) {
-			outMessage.targetReached = 0;
-		}
-		else {
-			outMessage.targetReached = 1;
-		}
-		controlPub.publish(outMessage);
-		//spinOnce();*/
 
     }
 
