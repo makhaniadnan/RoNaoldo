@@ -98,6 +98,8 @@ public:
     // Images and other variables required for template matching:
     Mat image;
     Mat image_hsv;
+    Mat image_undist;
+    Mat image_track;
     Mat image_template;
     Mat image_ROI;
     Mat image_ROI_hsv;
@@ -124,9 +126,6 @@ public:
 		visionPub = nh_.advertise<RoNAOldo::visionMsg>("visionMessage", 10);
 
 		count = 0;
-    //Ball tracking initializations
-
-
 
     // read image and extract area of interest from template img
     try
@@ -139,8 +138,8 @@ public:
         {
             cout << "Could not open or find the image" << endl ;
         }
-        //region_of_interest = Rect(250,253,189,189);  // for morning
-        region_of_interest = Rect(269,269,163,163);  // for night
+        //region_of_interest = Rect(250,253,189,189);  // for mor_temp
+        region_of_interest = Rect(269,269,163,163);  // for nit_temp
 
         image_ROI = image_template(region_of_interest);
         imshow("ROI", image_ROI);
@@ -212,6 +211,24 @@ public:
     }
     void detect_Ball(const sensor_msgs::ImageConstPtr& msg)
     {
+      // Define Camera Parameters:
+      float k1 = -0.066494;
+      float k2 = 0.095481;
+      float k3 = -0.000279;
+      float k4 = 0.002292;
+      float k5 = 0.000000;
+      float f1 = 551.543059;
+      float f2 = 553.736023;
+      float alpha = 0.0;
+      float c1 = 327.382898;
+      float c2 = 225.026380;
+      float zero = 0.0;
+      float one = 1.0;
+      float alphaf1 = alpha * f1;
+
+      // Init Camera Parameters:
+      Mat dist = (Mat_<float>(1,5) << k1, k2, k3, k4, k5);
+      Mat camMatrix = (Mat_<float>(3,3) << f1, alphaf1, c1, zero, f2, c2, zero, zero, one);
 
 
 
@@ -227,6 +244,7 @@ public:
       }
       // Back Projection + mean/cam shift tracking:
       try {
+          image_track = image;
           cvtColor(image,image_hsv,CV_BGR2HSV);
           split(image_hsv,image_channel);
           threshold(image_channel[1], image_mask, 70, 255, THRESH_BINARY);
@@ -234,12 +252,27 @@ public:
           bitwise_and(backproj,image_mask,backproj);
           //meanShift(backproj,region_of_interest, TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 10, 1));
           CamShift(backproj,region_of_interest, TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 10, 1));
-          rectangle(image, region_of_interest,1,2,1,0);
-          imshow("Tracking", image);
+          rectangle(image_track, region_of_interest,1,2,1,0);
+          imshow("Tracking", image_track);
           waitKey(30);
       }
       catch (...) {
           ROS_ERROR("Error in meanshift/ camshift!");
+      }
+
+      // Calculate distance to the ball
+      try {
+
+        undistort(image,image_undist,camMatrix,dist);
+        float distance = f2 * (100.00/ (float) region_of_interest.height);
+        cout << "dist"<< distance << endl<<endl;
+
+
+
+
+      }
+      catch (...) {
+          ROS_ERROR("cant get the distance to the ball");
       }
 
 
@@ -262,6 +295,7 @@ int main(int argc, char** argv)
     namedWindow("ROI");
     namedWindow("hist");
     namedWindow("Tracking");
+
 
     startWindowThread();
 
