@@ -99,6 +99,10 @@ public:
     //Camera parameters for aruco marker detection
     aruco::CameraParameters cameraParameters;
 
+    // Initialize Marker Class:
+   aruco::MarkerDetector MDetector;
+   vector<aruco::Marker> Markers;
+
     // Images and other variables required for template matching:
     Mat image;
     Mat image_goal;
@@ -231,9 +235,7 @@ public:
       ros::Rate rate_sleep(10);
       while(nh_.ok())
       {
-        v_msg.ballArea = count;
-        count++;
-        visionPub.publish(v_msg);
+
         top_sub = it.subscribe("nao/nao_robot/camera/top/camera/image_raw", 1, &Vision::detect_Ball_Goal, this);
 
         rate_sleep.sleep();
@@ -274,27 +276,10 @@ public:
           ROS_ERROR("Error in meanshift/ camshift!");
       }
 
-      // Calculate distance to the ball
+      // Detect Markers
       try {
 
-        undistort(image,image_undist,camMatrix,dist);
-        float distance = f2 * (100.00/ (float) region_of_interest.height);
-        cout << "dist"<< distance << endl<<endl;
 
-
-
-
-      }
-      catch (...) {
-          ROS_ERROR("cant get the distance to the ball");
-      }
-
-     // Detect Markers
-      try {
-
-        // Initialize Marker Class:
-       aruco::MarkerDetector MDetector;
-       vector<aruco::Marker> Markers;
 
       // Detect Marker:
       // size of marker
@@ -328,6 +313,47 @@ public:
       }
       catch (...) {
           ROS_ERROR("Cant Detect Markers");
+      }
+
+      // Prepare message for control
+      try {
+
+        undistort(image,image_undist,camMatrix,dist);
+        float distance = f2 * (100.00/ (float) region_of_interest.height);
+        cout << "dist"<< distance << endl<<endl;
+
+        //check if we found both markers
+		   if(Markers.size() == 2 && ball_detected) {
+			 //calculate middle of the two markers
+  		float horizontalMiddle = Markers[0].getCenter().x + 0.5 * (Markers[1].getCenter().x - \
+					Markers[0].getCenter().x);
+
+
+			//draw middle line
+			cv::line(image_goal, cv::Point2f(horizontalMiddle,0.0), cv::Point2f(horizontalMiddle,480.0), cv::Scalar(255,0,0));
+
+			//is ball left or right from middle?
+
+			float ballOffMiddle = region_of_interest.x + (region_of_interest.width/2) - horizontalMiddle;
+
+			if(ballOffMiddle >= 0) {
+				ROS_INFO("Ball is RIGHT of middle (or in the middle): %f pixels", ballOffMiddle);
+			} else {
+				ROS_INFO("Ball is LEFT of middle: %f pixels", -ballOffMiddle);
+			}
+
+			//publish our message
+      v_msg.ball_distance = distance;
+      v_msg.ball_off_middle = ballOffMiddle;
+      visionPub.publish(v_msg);
+		}
+
+
+
+
+      }
+      catch (...) {
+          ROS_ERROR("cant get the distance to the ball");
       }
 
 

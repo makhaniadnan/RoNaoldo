@@ -113,7 +113,8 @@ public:
 
     void visionMessageCallback(const RoNAOldo::visionMsg::ConstPtr &inMessage) {
 
-    cout << "Recieved: " << inMessage->ballArea << endl;
+    cout << "Recieved: " << inMessage->ball_off_middle << endl << inMessage->ball_distance<<endl<<endl<<endl;
+
 
     }
 
