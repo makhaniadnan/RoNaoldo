@@ -85,6 +85,8 @@ public:
 
     //Image tope camera subscriber for ball
     image_transport::Subscriber ball_top_sub;
+    //Image tope camera subscriber for ball
+    image_transport::Subscriber goal_top_sub;
 
     // Spin Thread:
     boost::thread *spin_thread;
@@ -94,6 +96,9 @@ public:
 
     // Image transporter
     image_transport::ImageTransport it;
+
+    //Camera parameters for aruco marker detection
+    aruco::CameraParameters cameraParameters;
 
     // Images and other variables required for template matching:
     Mat image;
@@ -106,7 +111,10 @@ public:
     Rect region_of_interest;
     vector<cv::Mat> v_channel, image_channel;
     Mat mask, image_mask;
+    Mat dist, camMatrix;
     MatND hist, backproj;
+    float k1, k2, k3, k4, k5;
+    float f1, f2, alpha, c1, c2;
     float hranges[2]= { 0, 180 };
     const float* ranges[1] = { hranges };
     int hsize[1] = { 180 };
@@ -126,6 +134,22 @@ public:
 		visionPub = nh_.advertise<RoNAOldo::visionMsg>("visionMessage", 10);
 
 		count = 0;
+    // Define Camera Parameters:
+    k1 = -0.066494;
+    k2 = 0.095481;
+    k3 = -0.000279;
+    k4 = 0.002292;
+    k5 = 0.000000;
+    f1 = 551.543059;
+    f2 = 553.736023;
+    alpha = 0.0;
+    c1 = 327.382898;
+    c2 = 225.026380;
+    float alphaf1 = alpha * f1;
+
+    // Init Camera Parameters:
+    dist = (Mat_<float>(1,5) << k1, k2, k3, k4, k5);
+    camMatrix = (Mat_<float>(3,3) << f1, alphaf1, c1, 0.0, f2, c2, 0.0, 0.0, 1.0);
 
     // read image and extract area of interest from template img
     try
@@ -205,33 +229,13 @@ public:
         count++;
         visionPub.publish(msg);
         ball_top_sub = it.subscribe("nao/nao_robot/camera/top/camera/image_raw", 1, &Vision::detect_Ball, this);
+        goal_top_sub = it.subscribe("nao/nao_robot/camera/top/camera/image_raw", 1, &Vision::detect_goal, this);
         rate_sleep.sleep();
       }
 
     }
     void detect_Ball(const sensor_msgs::ImageConstPtr& msg)
     {
-      // Define Camera Parameters:
-      float k1 = -0.066494;
-      float k2 = 0.095481;
-      float k3 = -0.000279;
-      float k4 = 0.002292;
-      float k5 = 0.000000;
-      float f1 = 551.543059;
-      float f2 = 553.736023;
-      float alpha = 0.0;
-      float c1 = 327.382898;
-      float c2 = 225.026380;
-      float zero = 0.0;
-      float one = 1.0;
-      float alphaf1 = alpha * f1;
-
-      // Init Camera Parameters:
-      Mat dist = (Mat_<float>(1,5) << k1, k2, k3, k4, k5);
-      Mat camMatrix = (Mat_<float>(3,3) << f1, alphaf1, c1, zero, f2, c2, zero, zero, one);
-
-
-
       // Convert to bgr8 and display:
       try
       {
@@ -276,6 +280,10 @@ public:
       }
 
 
+    }
+
+    void detect_goal(const sensor_msgs::ImageConstPtr& msg)
+    {
     }
 
 
