@@ -84,9 +84,8 @@ public:
     ros::Publisher visionPub;
 
     //Image tope camera subscriber for ball
-    image_transport::Subscriber ball_top_sub;
-    //Image tope camera subscriber for ball
-    image_transport::Subscriber goal_top_sub;
+    image_transport::Subscriber top_sub;
+
 
     // Spin Thread:
     boost::thread *spin_thread;
@@ -102,10 +101,10 @@ public:
 
     // Images and other variables required for template matching:
     Mat image;
-    Mat goal_image;
+    Mat image_goal;
     Mat image_hsv;
     Mat image_undist;
-    Mat image_track;
+    Mat image_ball;
     Mat image_template;
     Mat image_ROI;
     Mat image_ROI_hsv;
@@ -224,7 +223,6 @@ public:
 
     void main_loop() {
 
-
       //int count = 0;
       ros::Rate rate_sleep(10);
       while(nh_.ok())
@@ -232,13 +230,13 @@ public:
         v_msg.ballArea = count;
         count++;
         visionPub.publish(v_msg);
-        ball_top_sub = it.subscribe("nao/nao_robot/camera/top/camera/image_raw", 1, &Vision::detect_Ball, this);
-        goal_top_sub = it.subscribe("nao/nao_robot/camera/top/camera/image_raw", 1, &Vision::detect_goal, this);
+        top_sub = it.subscribe("nao/nao_robot/camera/top/camera/image_raw", 1, &Vision::detect_Ball_Goal, this);
+
         rate_sleep.sleep();
       }
 
     }
-    void detect_Ball(const sensor_msgs::ImageConstPtr& msg)
+    void detect_Ball_Goal(const sensor_msgs::ImageConstPtr& msg)
     {
       // Convert to bgr8 and display:
       try
@@ -252,7 +250,8 @@ public:
       }
       // Back Projection + mean/cam shift tracking:
       try {
-          image_track = image;
+          image_ball = image.clone();
+          image_goal = image.clone();
           cvtColor(image,image_hsv,CV_BGR2HSV);
           split(image_hsv,image_channel);
           threshold(image_channel[1], image_mask, 70, 255, THRESH_BINARY);
@@ -260,8 +259,8 @@ public:
           bitwise_and(backproj,image_mask,backproj);
           //meanShift(backproj,region_of_interest, TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 10, 1));
           CamShift(backproj,region_of_interest, TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 10, 1));
-          rectangle(image_track, region_of_interest,1,2,1,0);
-          imshow("Tracking", image_track);
+          rectangle(image_ball, region_of_interest,1,2,1,0);
+          imshow("Tracking", image_ball);
           waitKey(30);
       }
       catch (...) {
@@ -283,62 +282,49 @@ public:
           ROS_ERROR("cant get the distance to the ball");
       }
 
+     // Detect Markers
+      try {
 
-    }
+        // Initialize Marker Class:
+       aruco::MarkerDetector MDetector;
+       vector<aruco::Marker> Markers;
 
-    void detect_goal(const sensor_msgs::ImageConstPtr& msg1)
-    {
+      // Detect Marker:
+      // size of marker
+      float markerSize = 0.135; //13.5mm
+      MDetector.detect(image, Markers, cameraParameters, markerSize);
 
-      // Convert to bgr8 and display:
-        try
-        {
-            //bgr8: CV_8UC3, color image with blue-green-red color order
-            goal_image = cv_bridge::toCvShare(msg1, "bgr8")->image;
+      // Draw  Marker Info:
+      double pos3d[3];
+      double orient3d[4];
+      for (unsigned int i=0;i<Markers.size();i++) {
+      //cout<<Markers[i]<<endl;
+      //ROS_INFO("Found Marker %d", Markers[i].id);
+        Markers[i].draw(image_goal, cv::Scalar(0,0,255),2);
+
+       // Get 3D position and print it:
+        Markers[i].OgreGetPoseParameters(pos3d, orient3d);
+       //  ROS_INFO("Marker's 3D position: X: %f - Y: %f - Z: %f", pos3d[0], pos3d[1], pos3d[2]);
+        cv::Point2f markerCenter;
+        markerCenter = Markers[i].getCenter();
+
+        //ROS_INFO("Marker's center is X: %f - Y: %f",markerCenter.x,markerCenter.y);
+
         }
-        catch (cv_bridge::Exception& e)
-        {
-            ROS_ERROR("Could not convert from '%s' to 'bgr8'.", msg1->encoding.c_str());
-        }
-       try {
+       // Show image:
+         imshow("goal", image_goal);
+           //wait 30ms
+         cv::waitKey(30);
 
-           // Initialize Marker Class:
-	        aruco::MarkerDetector MDetector;
-	        vector<aruco::Marker> Markers;
 
-	      // Detect Marker:
-		    // size of marker
-		    float markerSize = 0.135; //13.5mm
-	      MDetector.detect(goal_image, Markers, cameraParameters, markerSize);
-
-        // Draw  Marker Info:
-	      Mat image_marker = goal_image;
-	      double pos3d[3];
-	      double orient3d[4];
-	      for (unsigned int i=0;i<Markers.size();i++) {
-	      //cout<<Markers[i]<<endl;
-	      //ROS_INFO("Found Marker %d", Markers[i].id);
-	         Markers[i].draw(image_marker, cv::Scalar(0,0,255),2);
-
-	       // Get 3D position and print it:
-	        Markers[i].OgreGetPoseParameters(pos3d, orient3d);
-	      //  ROS_INFO("Marker's 3D position: X: %f - Y: %f - Z: %f", pos3d[0], pos3d[1], pos3d[2]);
-		      cv::Point2f markerCenter;
-		      markerCenter = Markers[i].getCenter();
-
-		      //ROS_INFO("Marker's center is X: %f - Y: %f",markerCenter.x,markerCenter.y);
-
-          }
-          // Show image:
-		        imshow("goal", image_marker);
-		          //wait 30ms
-	          cv::waitKey(30);
 
       }
       catch (...) {
-          ROS_ERROR("Error in goal detection!");
+          ROS_ERROR("Cant Detect Markers");
       }
-    }
 
+
+    }
 
     void controlMessageCallback(const RoNAOldo::controlMsg::ConstPtr &inMessage) {
 
