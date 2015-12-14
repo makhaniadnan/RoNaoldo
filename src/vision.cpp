@@ -120,6 +120,8 @@ public:
     int hsize[1] = { 180 };
     int chnls[1] = {0};
 
+    bool ball_detected;
+
 
 
     // Counter: <just for testing>
@@ -134,6 +136,8 @@ public:
 		visionPub = nh_.advertise<RoNAOldo::visionMsg>("visionMessage", 10);
 
 		count = 0;
+
+    ball_detected = false;
     // Define Camera Parameters:
     k1 = -0.066494;
     k2 = 0.095481;
@@ -250,6 +254,7 @@ public:
       }
       // Back Projection + mean/cam shift tracking:
       try {
+          ball_detected = false;
           image_ball = image.clone();
           image_goal = image.clone();
           cvtColor(image,image_hsv,CV_BGR2HSV);
@@ -260,6 +265,8 @@ public:
           //meanShift(backproj,region_of_interest, TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 10, 1));
           CamShift(backproj,region_of_interest, TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 10, 1));
           rectangle(image_ball, region_of_interest,1,2,1,0);
+          if( (region_of_interest.height/region_of_interest.width) < 1.5 && (region_of_interest.width/region_of_interest.height ) > .6 )
+          { ball_detected = true; }
           imshow("Tracking", image_ball);
           waitKey(30);
       }
