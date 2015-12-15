@@ -132,11 +132,11 @@ public:
         if (DATA_IS_NEW == true) {
 
           if (DEBUG == true) {
-            cout << "Received new Data:" << endl;
-            cout << "Distance to ball: " << BALL_DIST << endl;
-            cout << "Ball position relative to goal: " << BALL_REL_TO_GOAL << endl;
-            cout << "Ball position relative to image: " << BALL_REL_TO_IMAGE << endl;
-            cout << endl;
+            cout << "-------------------------------------------------------" << endl;
+            cout << "\033[1;31mNew Control Iteration:\033[0m" << endl;
+            cout << "    \033[3mBALL_DST            \033[0m : " << setw(10) << BALL_DIST << endl;
+            cout << "    \033[3mBALL_REL_TO_GOAL    \033[0m : " << setw(10) << BALL_REL_TO_GOAL << endl;
+            cout << "    \033[3mBALL_REL_TO_IMAGE   \033[0m : " << setw(10) << BALL_REL_TO_IMAGE << endl;
           }
 
           // ----- BEGIN CONTROL ALGORITHM -----
@@ -186,13 +186,17 @@ public:
       // Check where ball is relative to image
       if (BALL_REL_TO_IMAGE > 0) {      // right side in image
         if (DEBUG == true) {
-          cout << "\nPerforming Orientation Control" << ORIENTATION_GAIN << "(BALL_REL_TO_IMAGE > 0)" <<endl;
+          cout << "\033[1;33mPerforming Orientation Control:\033[0m" << endl;
+          cout << "    \033[3mcondition            \033[0m: " << " (BALL_REL_TO_IMAGE > 0)" << endl;
+          cout << "    \033[3mORIENTATION_GAIN     \033[0m: " << setw(10) << ORIENTATION_GAIN  << endl;
         }
         walker(0, 0, -ORIENTATION_GAIN);
       }
       else {                            // left side in image
         if (DEBUG == true) {
-          cout << "\nPerforming Orientation Control" << ORIENTATION_GAIN << "(BALL_REL_TO_IMAGE < 0)" <<endl;
+          cout << "\033[1;33mPerforming Orientation Control:\033[0m" << endl;
+          cout << "    \033[3mcondition            \033[0m: " << " (BALL_REL_TO_IMAGE < 0)" << endl;
+          cout << "    \033[3mORIENTATION_GAIN     \033[0m: " << setw(10) << ORIENTATION_GAIN  << endl;
         }
         walker(0, 0, ORIENTATION_GAIN);
       }
@@ -208,13 +212,17 @@ public:
       // Check where ball is relative to goal
       if (BALL_REL_TO_GOAL > 0) {       // right of goal
         if (DEBUG == true) {
-          cout << "\nPerforming Position Control: " << POSITION_GAIN << "(BALL_REL_TO_GOAL > 0)" << endl;
+          cout << "\033[1;33mPerforming Position Control:\033[0m" << endl;
+          cout << "    \033[3mcondition            \033[0m: " << " (BALL_REL_To_IMAGE > 0)" << endl;
+          cout << "    \033[3mPOSITION_GAIN        \033[0m: " << setw(10) << POSITION_GAIN  << endl;
         }
         walker(0, POSITION_GAIN, 0);
       }
       else {                            // left of goal
         if (DEBUG == true) {
-          cout << "\nPerforming Position Control: " << POSITION_GAIN << "(BALL_REL_TO_GOAL < 0)" << endl;
+          cout << "\033[1;33mPerforming Position Control:\033[0m" << endl;
+          cout << "    \033[3mcondition            \033[0m: " << " (BALL_REL_To_IMAGE < 0)" << endl;
+          cout << "    \033[3mPOSITION_GAIN        \033[0m: " << setw(10) << POSITION_GAIN  << endl;
         }
         walker(0, -POSITION_GAIN, 0);
       }
@@ -225,7 +233,7 @@ public:
     void controlApproach() {
 
       if (DEBUG == true) {
-        cout << "\nPerforming Approach Control" << endl;
+        cout << "\033[1;33mPerforming Approach Control:\033[0m" << endl;
       }
 
       // TODO
@@ -238,7 +246,7 @@ public:
     void controlKick() {
 
       if (DEBUG == true) {
-        cout << "\nPerforming Kick Control" << endl;
+        cout << "\033[1;33mPerforming Kick Control:\033[0m" << endl;
       }
 
       // TODO
@@ -250,6 +258,13 @@ public:
     // Walker function:
     void walker(double x, double y, double theta)
   	{
+
+      if (DEBUG == true) {
+        cout << "\033[1;34mMoving:\033[0m" << endl;
+        cout << "    \033[3mX                   \033[0m : " << setw(10) << x << endl;
+        cout << "    \033[3mY                   \033[0m : " << setw(10) << y << endl;
+        cout << "    \033[3mtheta               \033[0m : " << setw(10) << theta << endl;
+      }
 
   		// Create Message:
   		geometry_msgs::Pose2D pose;
@@ -270,7 +285,9 @@ public:
       // rostopic list
       // rostopic info /nao/...
 
-      cout << "\nMovement done!" << endl;
+      if (DEBUG == true) {
+        cout << "\033[1;32mMovement done!\033[0m" << endl;
+      }
 
   	}
 
