@@ -321,11 +321,13 @@ public:
 
       // Prepare message for control
       try {
-        distance = -1.0;
+        float distance = -1.0;
+        float ball_pos_goal = -1.0;
+        float ball_pos_img = -1.0;
         undistort(image,image_undist,camMatrix,dist);
         if ( region_of_interest.height >0)
         {
-          float distance = f2 * (100.00/ (float) region_of_interest.height);
+          distance = f2 * (70.00/ (float) region_of_interest.height);
         }
 
 
@@ -344,12 +346,12 @@ public:
          if(region_of_interest.width > 0 && region_of_interest.height > 0 )
            {
               float ball_centre_x = region_of_interest.x + (region_of_interest.width/2);
-       		    float ball_pos_goal = ((ball_centre_x - Markers[0].getCenter().x) / goal_distance_half) - 1;
-              float ball_pos_img =  (ball_centre_x  / (image.width/2.0)) - 1;
+       		    ball_pos_goal = ((ball_centre_x - Markers[0].getCenter().x) / goal_distance_half) - 1;
+              ball_pos_img =  (ball_centre_x  / (image.cols/2.0)) - 1;
            }
 
 			  //publish our message
-        v_msg.ball_distance = distance;
+        v_msg.ball_distance = distance / 1000.0;
         v_msg.ball_rel_goal = ball_pos_goal;
         v_msg.ball_rel_image = ball_pos_img;
         visionPub.publish(v_msg);
