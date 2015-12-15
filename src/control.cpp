@@ -42,6 +42,7 @@
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/imgproc/imgproc.hpp>
+#include <geometry_msgs/Pose2D.h>
 #include <opencv2/highgui/highgui.hpp>
 
 // Include customn messages:
@@ -79,6 +80,9 @@ public:
     // publisher
     ros::Publisher controlPub;
 
+    // walker publisher:
+    ros::Publisher walk_pub;
+
     // Spin Thread:
     boost::thread *spin_thread;
 
@@ -94,16 +98,17 @@ public:
     // Control Paramers:
     bool ORIENTATION_OK = false;
     float STEP_SIZE = 0;
-    float ORIENTATION_TOLERANCE = 1;
-    float POSITION_TOLERANCE = 1;
+    float ORIENTATION_TOLERANCE = 0.1;
+    float POSITION_TOLERANCE = 0.1;
 
     Control(NodeHandle n) {
 
 		nh_ = n;
 
+    // Setup Publisher and Subscriber:
 		controlSub = nh_.subscribe("visionMessage", 10, &Control::visionMessageCallback, this);
-
 		controlPub = nh_.advertise<RoNAOldo::controlMsg>("controlMessage", 10);
+    walk_pub = nh_.advertise<geometry_msgs::Pose2D>("/nao/cmd_pose", 1);
 
     stop_thread=false;
     spin_thread=new boost::thread(&spinThread);
@@ -127,8 +132,8 @@ public:
           // ----- BEGIN CONTROL ALGORITHM -----
 
           // Check if Orientation is OK:
-          if (false /* Condition for Orientation */) {
-            if (true /* Condition for Position*/) {
+          if (BALL_REL_TO_IMAGE >= -ORIENTATION_TOLERANCE && BALL_REL_TO_IMAGE <= ORIENTATION_TOLERANCE) {
+            if (BALL_REL_TO_GOAL >= -POSITION_TOLERANCE && BALL_REL_TO_GOAL <= POSITION_TOLERANCE) {
               if(true /* Condition for Approach*/) {
                 if(true /* Condition for Kick */) {
                   controlKick();
@@ -165,6 +170,10 @@ public:
     // ORIENTATION CONTROLLER:
     void controlOrientation () {
 
+      if (DEBUG == true) {
+        cout << "\nPerforming Orientation Control" << endl;
+      }
+
       // Check where ball is relative to image
       if (BALL_REL_TO_IMAGE > 0) {      // right side in image
         // Turn Right
@@ -177,6 +186,10 @@ public:
 
     // POSITION CONTROLLER:
     void controlPosition() {
+
+      if (DEBUG == true) {
+        cout << "\nPerforming Position Control" << endl;
+      }
 
       // Calculate stepsize:
       // TODO
@@ -194,6 +207,10 @@ public:
     // APPROACHING CONTROLLER:
     void controlApproach() {
 
+      if (DEBUG == true) {
+        cout << "\nPerforming Approach Control" << endl;
+      }
+
       // TODO
       // 1. Control Offset for kicking with right foot
       // 2. Control Approach to ball
@@ -203,15 +220,34 @@ public:
     // KICKING CONTROLLER:
     void controlKick() {
 
+      if (DEBUG == true) {
+        cout << "\nPerforming Kick Control" << endl;
+      }
+
       // TODO
       // 1. Stay on one foot
       // 2. Perfrom Kick
 
     }
 
+    // Walker function:
+    void walker(double x, double y, double theta)
+  	{
+
+  		// Create Message:
+  		geometry_msgs::Pose2D pose;
+  		pose.x = x;
+  		pose.y = y;
+  		pose.theta = theta;
+
+  		// Publish Message:
+  		walk_pub.publish(pose);
+
+  	}
+
     void visionMessageCallback(const RoNAOldo::visionMsg::ConstPtr &inMessage) {
 
-      BALL_REL_TO_GOAL = inMessage->ball_off_middle;
+      BALL_REL_TO_GOAL = inMessage->ball_rel_goal;
       BALL_DIST = inMessage->ball_distance;
       BALL_REL_TO_IMAGE = inMessage->ball_rel_image;
 

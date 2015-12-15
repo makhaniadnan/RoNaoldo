@@ -161,7 +161,7 @@ public:
         cout << "\nEnter Distance to Ball [m]: ";
         cin >> msg.ball_distance;
         cout << "\nEnter ball position relative to goal: ";
-        cin >> msg.ball_off_middle;
+        cin >> msg.ball_rel_goal;
         cout << "\nEnter ball position relative to image: ";
         cin >> msg.ball_rel_image;
 

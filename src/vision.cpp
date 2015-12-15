@@ -325,7 +325,7 @@ public:
         //check if we found both markers
 		   if(Markers.size() == 2 && ball_detected) {
 			 //calculate middle of the two markers
-  		float horizontalMiddle = Markers[0].getCenter().x + 0.5 * (Markers[1].getCenter().x  \Markers[0].getCenter().x);
+  		float horizontalMiddle = Markers[0].getCenter().x + 0.5 * (Markers[1].getCenter().x - Markers[0].getCenter().x);
 
 
 			//draw middle line
@@ -343,7 +343,7 @@ public:
 
 			//publish our message
       v_msg.ball_distance = distance;
-      v_msg.ball_off_middle = ballOffMiddle;
+      v_msg.ball_rel_goal = ballOffMiddle;
       visionPub.publish(v_msg);
 		}
 
