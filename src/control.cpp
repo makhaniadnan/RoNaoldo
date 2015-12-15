@@ -97,9 +97,11 @@ public:
 
     // Control Paramers:
     bool ORIENTATION_OK = false;
-    float STEP_SIZE = 0;
-    float ORIENTATION_TOLERANCE = 0.1;
-    float POSITION_TOLERANCE = 0.1;
+    float ORIENTATION_GAIN = 0;
+    float POSITION_GAIN = 0;
+    float APPROACH_GAIN = 0;
+    float ORIENTATION_TOLERANCE = 0.03;
+    float POSITION_TOLERANCE = 0.03;
 
     Control(NodeHandle n) {
 
@@ -128,6 +130,14 @@ public:
   		{
 
         if (DATA_IS_NEW == true) {
+
+          if (DEBUG == true) {
+            cout << "Received new Data:" << endl;
+            cout << "Distance to ball: " << BALL_DIST << endl;
+            cout << "Ball position relative to goal: " << BALL_REL_TO_GOAL << endl;
+            cout << "Ball position relative to image: " << BALL_REL_TO_IMAGE << endl;
+            cout << endl;
+          }
 
           // ----- BEGIN CONTROL ALGORITHM -----
 
@@ -170,16 +180,21 @@ public:
     // ORIENTATION CONTROLLER:
     void controlOrientation () {
 
-      if (DEBUG == true) {
-        cout << "\nPerforming Orientation Control" << endl;
-      }
+      // calculate gain
+      ORIENTATION_GAIN = abs(BALL_REL_TO_IMAGE);
 
       // Check where ball is relative to image
       if (BALL_REL_TO_IMAGE > 0) {      // right side in image
-        // Turn Right
+        if (DEBUG == true) {
+          cout << "\nPerforming Orientation Control" << ORIENTATION_GAIN << "(BALL_REL_TO_IMAGE > 0)" <<endl;
+        }
+        walker(0, 0, -ORIENTATION_GAIN);
       }
       else {                            // left side in image
-        // Turn Left
+        if (DEBUG == true) {
+          cout << "\nPerforming Orientation Control" << ORIENTATION_GAIN << "(BALL_REL_TO_IMAGE < 0)" <<endl;
+        }
+        walker(0, 0, ORIENTATION_GAIN);
       }
 
     }
@@ -187,19 +202,21 @@ public:
     // POSITION CONTROLLER:
     void controlPosition() {
 
-      if (DEBUG == true) {
-        cout << "\nPerforming Position Control" << endl;
-      }
-
       // Calculate stepsize:
-      // TODO
+      POSITION_GAIN = abs(BALL_REL_TO_GOAL) / 10.0;
 
       // Check where ball is relative to goal
       if (BALL_REL_TO_GOAL > 0) {       // right of goal
-        // Sidestep right
+        if (DEBUG == true) {
+          cout << "\nPerforming Position Control: " << POSITION_GAIN << "(BALL_REL_TO_GOAL > 0)" << endl;
+        }
+        walker(0, POSITION_GAIN, 0);
       }
       else {                            // left of goal
-        // Sidestep left
+        if (DEBUG == true) {
+          cout << "\nPerforming Position Control: " << POSITION_GAIN << "(BALL_REL_TO_GOAL < 0)" << endl;
+        }
+        walker(0, -POSITION_GAIN, 0);
       }
 
     }
@@ -243,6 +260,10 @@ public:
   		// Publish Message:
   		walk_pub.publish(pose);
 
+      // Wait until movement is finished:
+      sleep(5);
+      cout << "\nMovement done!" << endl;
+
   	}
 
     void visionMessageCallback(const RoNAOldo::visionMsg::ConstPtr &inMessage) {
@@ -252,14 +273,6 @@ public:
       BALL_REL_TO_IMAGE = inMessage->ball_rel_image;
 
       DATA_IS_NEW = true;
-
-      if (DEBUG == true) {
-        cout << "Received new Data:" << endl;
-        cout << "Distance to ball: " << BALL_DIST << endl;
-        cout << "Ball position relative to goal: " << BALL_REL_TO_GOAL << endl;
-        cout << "Ball position relative to image: " << BALL_REL_TO_IMAGE << endl;
-        cout << endl;
-      }
 
     }
 
