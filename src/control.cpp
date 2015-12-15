@@ -82,6 +82,21 @@ public:
     // Spin Thread:
     boost::thread *spin_thread;
 
+    // DEBUG MODE:
+    bool DEBUG = true;
+
+    // Vision Info:
+    float BALL_REL_TO_GOAL;
+    float BALL_DIST;
+    bool DATA_IS_NEW = false;
+    float BALL_REL_TO_IMAGE = 0;
+
+    // Control Paramers:
+    bool ORIENTATION_OK = false;
+    float STEP_SIZE = 0;
+    float ORIENTATION_TOLERANCE = 1;
+    float POSITION_TOLERANCE = 1;
+
     Control(NodeHandle n) {
 
 		nh_ = n;
@@ -102,19 +117,113 @@ public:
     }
 
     void main_loop() {
-  		ros::Rate rate_sleep(10);
+  		ros::Rate rate_sleep(1);
 
   		while(nh_.ok())
   		{
+
+        if (DATA_IS_NEW == true) {
+
+          // ----- BEGIN CONTROL ALGORITHM -----
+
+          // Check if Orientation is OK:
+          if (false /* Condition for Orientation */) {
+            if (true /* Condition for Position*/) {
+              if(true /* Condition for Approach*/) {
+                if(true /* Condition for Kick */) {
+                  controlKick();
+                }
+              }
+              else {
+                controlApproach();
+              }
+            }
+            else {
+              // SIDESTEP CONTROLLER:
+              controlPosition();
+            }
+          }
+          else {
+            // ORIENTATION CONTROLLER:
+            controlOrientation();
+          }
+
+          // ----- END CONTROL ALGORITHM -----
+
+          // DATA_IS_NEW to false:
+          DATA_IS_NEW = false;
+
+        }
+
+        // Rate:
         rate_sleep.sleep();
+
   		}
+
+    }
+
+    // ORIENTATION CONTROLLER:
+    void controlOrientation () {
+
+      // Check where ball is relative to image
+      if (BALL_REL_TO_IMAGE > 0) {      // right side in image
+        // Turn Right
+      }
+      else {                            // left side in image
+        // Turn Left
+      }
+
+    }
+
+    // POSITION CONTROLLER:
+    void controlPosition() {
+
+      // Calculate stepsize:
+      // TODO
+
+      // Check where ball is relative to goal
+      if (BALL_REL_TO_GOAL > 0) {       // right of goal
+        // Sidestep right
+      }
+      else {                            // left of goal
+        // Sidestep left
+      }
+
+    }
+
+    // APPROACHING CONTROLLER:
+    void controlApproach() {
+
+      // TODO
+      // 1. Control Offset for kicking with right foot
+      // 2. Control Approach to ball
+
+    }
+
+    // KICKING CONTROLLER:
+    void controlKick() {
+
+      // TODO
+      // 1. Stay on one foot
+      // 2. Perfrom Kick
 
     }
 
     void visionMessageCallback(const RoNAOldo::visionMsg::ConstPtr &inMessage) {
 
-    cout << "Recieved: " << inMessage->ball_off_middle << endl << inMessage->ball_distance<<endl<<endl<<endl;
+      BALL_REL_TO_GOAL = inMessage->ball_off_middle;
+      BALL_DIST = inMessage->ball_distance;
+      BALL_REL_TO_IMAGE = inMessage->ball_rel_image;
 
+      DATA_IS_NEW = true;
+
+      if (DEBUG == true) {
+        cout << "Received new Data:" << endl;
+        cout << "Distance to ball: " << BALL_DIST << endl;
+        cout << "Ball position relative to goal: " << BALL_REL_TO_GOAL << endl;
+        cout << "Ball position relative to image: " << BALL_REL_TO_IMAGE << endl;
+        cout << endl;
+      }
 
     }
 
