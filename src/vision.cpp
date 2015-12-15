@@ -265,14 +265,15 @@ public:
           calcBackProject( &image_channel[0], 1, chnls, hist, backproj, ranges); //calculate backprojection
           bitwise_and(backproj,image_mask,backproj);
           //meanShift(backproj,region_of_interest, TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 10, 1));
-          CamShift(backproj,region_of_interest, TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 10, 1));
-          rectangle(image_ball, region_of_interest,1,2,1,0);
+          if( region_of_interest.height > 0.0 && region_of_interest.width > 0.0)
+            {
+                CamShift(backproj,region_of_interest, TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 10, 1));
+                rectangle(image_ball, region_of_interest,1,2,1,0);
+                if( ( (float)region_of_interest.height/(float)region_of_interest.width) < 1.5 && ((float)region_of_interest.width/(float)region_of_interest.height ) > .6 )
+                { ball_detected = true; }
+            }
 
-          if (region_of_interest.height > 0.0 && region_of_interest.width > 0.0)
-          {
-            if( ( (float)region_of_interest.height/(float)region_of_interest.width) < 1.5 && ((float)region_of_interest.width/(float)region_of_interest.height ) > .6 )
-            { ball_detected = true; }
-          }
+          
           imshow("Tracking", image_ball);
           waitKey(30);
       }
