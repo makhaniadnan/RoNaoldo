@@ -262,6 +262,14 @@ public:
 
       // Wait until movement is finished:
       sleep(5);
+
+      //while( //movement still active )
+      //{
+      //
+      //}
+      // rostopic list
+      // rostopic info /nao/...
+
       cout << "\nMovement done!" << endl;
 
   	}
