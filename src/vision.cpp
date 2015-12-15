@@ -165,16 +165,16 @@ public:
     // read image and extract area of interest from template img
     try
     {
-        //image_template = imread("/home/hrs2015/catkin_ws/src/RoNaoldo/images/mor_temp.jpg");
-        image_template = imread("/home/hrs2015/catkin_ws/src/RoNaoldo/images/nit_temp.jpg");
+        image_template = imread("/home/hrs2015/catkin_ws/src/RoNaoldo/images/mor_temp.jpg");
+        //image_template = imread("/home/hrs2015/catkin_ws/src/RoNaoldo/images/nit_temp.jpg");
 
 
         if( image_template.empty() )  // Check for invalid input
         {
             cout << "Could not open or find the image" << endl ;
         }
-        //region_of_interest = Rect(250,253,189,189);  // for mor_temp
-        region_of_interest = Rect(269,269,163,163);  // for nit_temp
+        region_of_interest = Rect(229,325,92,92);  // for mor_temp
+        //region_of_interest = Rect(269,269,163,163);  // for nit_temp
 
         image_ROI = image_template(region_of_interest);
         imshow("ROI", image_ROI);
@@ -267,8 +267,12 @@ public:
           //meanShift(backproj,region_of_interest, TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 10, 1));
           CamShift(backproj,region_of_interest, TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 10, 1));
           rectangle(image_ball, region_of_interest,1,2,1,0);
-          if( (region_of_interest.height/region_of_interest.width) < 1.5 && (region_of_interest.width/region_of_interest.height ) > .6 )
-          { ball_detected = true; }
+
+          if (region_of_interest.height > 0.0 && region_of_interest.width > 0.0)
+          {
+            if( ( (float)region_of_interest.height/(float)region_of_interest.width) < 1.5 && ((float)region_of_interest.width/(float)region_of_interest.height ) > .6 )
+            { ball_detected = true; }
+          }
           imshow("Tracking", image_ball);
           waitKey(30);
       }
@@ -317,35 +321,39 @@ public:
 
       // Prepare message for control
       try {
-
+        distance = -1.0;
         undistort(image,image_undist,camMatrix,dist);
-        float distance = f2 * (100.00/ (float) region_of_interest.height);
-        cout << "dist"<< distance << endl<<endl;
+        if ( region_of_interest.height >0)
+        {
+          float distance = f2 * (100.00/ (float) region_of_interest.height);
+        }
+
 
         //check if we found both markers
 		   if(Markers.size() == 2 && ball_detected) {
 			 //calculate middle of the two markers
-  		float horizontalMiddle = Markers[0].getCenter().x + 0.5 * (Markers[1].getCenter().x - Markers[0].getCenter().x);
+
+         float goal_distance_half = (Markers[1].getCenter().x - Markers[0].getCenter().x) / 2.0;
+         float goal_middle = Markers[0].getCenter().x + 0.5 * (Markers[1].getCenter().x - Markers[0].getCenter().x);
 
 
-			//draw middle line
-			cv::line(image_goal, cv::Point2f(horizontalMiddle,0.0), cv::Point2f(horizontalMiddle,480.0), cv::Scalar(255,0,0));
+			  //draw middle line
+			  //cv::line(image_goal, cv::Point2f(horizontalMiddle,0.0), cv::Point2f(horizontalMiddle,480.0), cv::Scalar(255,0,0));
 
-			//is ball left or right from middle?
+			  //ball position w.r.t gaol scale
+         if(region_of_interest.width > 0 && region_of_interest.height > 0 )
+           {
+              float ball_centre_x = region_of_interest.x + (region_of_interest.width/2);
+       		    float ball_pos_goal = ((ball_centre_x - Markers[0].getCenter().x) / goal_distance_half) - 1;
+              float ball_pos_img =  (ball_centre_x  / (image.width/2.0)) - 1;
+           }
 
-			float ballOffMiddle = region_of_interest.x + (region_of_interest.width/2) - horizontalMiddle;
-
-			if(ballOffMiddle >= 0) {
-				ROS_INFO("Ball is RIGHT of middle (or in the middle): %f pixels", ballOffMiddle);
-			} else {
-				ROS_INFO("Ball is LEFT of middle: %f pixels", -ballOffMiddle);
-			}
-
-			//publish our message
-      v_msg.ball_distance = distance;
-      v_msg.ball_rel_goal = ballOffMiddle;
-      visionPub.publish(v_msg);
-		}
+			  //publish our message
+        v_msg.ball_distance = distance;
+        v_msg.ball_rel_goal = ball_pos_goal;
+        v_msg.ball_rel_image = ball_pos_img;
+        visionPub.publish(v_msg);
+		   }
 
 
 
