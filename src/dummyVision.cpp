@@ -37,8 +37,8 @@
 #include <boost/thread/locks.hpp>
 #include <actionlib_msgs/GoalStatusArray.h>
 #include <tf/transform_broadcaster.h>
-#include <aruco/aruco.h>
-#include <aruco/cvdrawingutils.h>
+//#include <aruco/aruco.h>
+//#include <aruco/cvdrawingutils.h>
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -95,38 +95,6 @@ public:
 
     // Image transporter
     image_transport::ImageTransport it;
-
-    //Camera parameters for aruco marker detection
-    aruco::CameraParameters cameraParameters;
-
-    // Initialize Marker Class:
-   aruco::MarkerDetector MDetector;
-   vector<aruco::Marker> Markers;
-
-    // Images and other variables required for template matching:
-    Mat image;
-    Mat image_goal;
-    Mat image_hsv;
-    Mat image_undist;
-    Mat image_ball;
-    Mat image_template;
-    Mat image_ROI;
-    Mat image_ROI_hsv;
-    Rect region_of_interest;
-    vector<cv::Mat> v_channel, image_channel;
-    Mat mask, image_mask;
-    Mat dist, camMatrix;
-    MatND hist, backproj;
-    float k1, k2, k3, k4, k5;
-    float f1, f2, alpha, c1, c2;
-    float hranges[2]= { 0, 180 };
-    const float* ranges[1] = { hranges };
-    int hsize[1] = { 180 };
-    int chnls[1] = {0};
-
-    bool ball_detected;
-
-
 
     // Counter: <just for testing>
     int count;
