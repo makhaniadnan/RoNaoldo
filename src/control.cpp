@@ -363,34 +363,40 @@ public:
       //adjustHead.position.push_back(0.3);
       //mooveJoints(adjustHead);
 
-      sensor_msgs::JointState oneFoot;
-      oneFoot.name.push_back("LKneePitch");
-      oneFoot.name.push_back("LAnklePitch");
-      oneFoot.name.push_back("RKneePitch");
-      oneFoot.name.push_back("RAnklePitch");
-      oneFoot.name.push_back("LAnkleRoll");
-      oneFoot.position.push_back(0.2);
-      oneFoot.position.push_back(-0.1);
-      oneFoot.position.push_back(-0.2);
-      oneFoot.position.push_back(0.2);
-      oneFoot.position.push_back(0.2);
-      mooveJoints(oneFoot, 0.05, 1);
+      sensor_msgs::JointState oneFoot1;
+      oneFoot1.name.push_back("LKneePitch");
+      oneFoot1.name.push_back("LAnklePitch");
+      oneFoot1.name.push_back("RKneePitch");
+      oneFoot1.name.push_back("RAnklePitch");
+      oneFoot1.name.push_back("LAnkleRoll");
+      oneFoot1.position.push_back(0.2);
+      oneFoot1.position.push_back(-0.1);
+      oneFoot1.position.push_back(-0.2);
+      oneFoot1.position.push_back(0.2);
+      oneFoot1.position.push_back(0.2);
+      mooveJoints(oneFoot1, 0.05, 1);
 
       sleep(3);
 
-      oneFoot.name.empty();
-      oneFoot.position.empty();
-
-      sensor_msgs::JointState oneFoot;
-      oneFoot.name.push_back("RKneePitch");
-      oneFoot.name.push_back("RAnklePitch");
-      oneFoot.position.push_back(0.4);
-      oneFoot.position.push_back(-0.4);
-      mooveJoints(oneFoot, 0.05, 1);
+      sensor_msgs::JointState oneFoot2;
+      oneFoot2.name.push_back("RKneePitch");
+      oneFoot2.name.push_back("RAnklePitch");
+      oneFoot2.position.push_back(0.4);
+      oneFoot2.position.push_back(-0.4);
+      mooveJoints(oneFoot2, 0.05, 1);
 
       sleep(3);
 
+      sensor_msgs::JointState oneFoot3;
+      oneFoot3.name.empty();
+      oneFoot3.position.empty();
+      oneFoot3.name.push_back("RHipPitch");
+      oneFoot3.name.push_back("RAnklePitch");
+      oneFoot3.position.push_back(-0.5);
+      oneFoot3.position.push_back(0.4);
+      mooveJoints(oneFoot3, 0.8, 1);
 
+      // reuturn to walking!
 
     }
 
