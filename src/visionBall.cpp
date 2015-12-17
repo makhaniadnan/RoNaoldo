@@ -129,7 +129,6 @@ public:
 
 		nh_ = n;
 
-		visionPub = nh_.advertise<RoNAOldo::visionMsg>("visionMessage", 10);
     ballCenterPub = nh_.advertise<RoNAOldo::ballMsg>("ball", 10);
 
 		count = 0;

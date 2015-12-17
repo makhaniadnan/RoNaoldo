@@ -1,14 +1,26 @@
 <launch>
     <node name="relative_position" pkg="RoNAOldo" type="RoNAOldo_relative_position" output="screen">
-        <remap from="goalPositionTop" to="/goalPosition" />
-        <remap from="ballTop" to="/ball" />
+        <remap from="goalPositionTop" to="/top/goalPosition" />
+        <remap from="ballTop" to="/top/ball" />
+        <remap from="goalPositionBottom" to="/bottom/goalPosition" />
+        <remap from="ballBottom" to="/bottom/ball" />
     </node>
 
-    <node name="ball_vision_top" pkg="RoNAOldo" type="RoNAOldo_ballVision" output="screen">
+    <!-- top namespace -->
+    <node name="ball_vision_top" pkg="RoNAOldo" type="RoNAOldo_ballVision" output="screen" ns="top">
         <remap from="image" to="/nao/nao_robot/camera/top/camera/image_raw" />
     </node>
 
-    <node name="marker_vision_top" pkg="RoNAOldo" type="RoNAOldo_vision_marker" output="screen">
+    <node name="marker_vision_top" pkg="RoNAOldo" type="RoNAOldo_vision_marker" output="screen" ns="top">
         <remap from="image" to="/nao/nao_robot/camera/top/camera/image_raw" />
     </node>
+
+    <!-- bottom namespace -->
+    <node name="ball_vision_bottom" pkg="RoNAOldo" type="RoNAOldo_ballVision" output="screen"  ns="bottom">
+        <remap from="image" to="/nao/nao_robot/camera/bottom/camera/image_raw" />
+    </node>
+
+    <node name="marker_vision_bottom" pkg="RoNAOldo" type="RoNAOldo_vision_marker" output="screen" ns="bottom">
+        <remap from="image" to="/nao/nao_robot/camera/bottom/camera/image_raw" />
+    </node> -->
 </launch>
