@@ -126,12 +126,13 @@ public:
 
         // Create Dummy Message:
         RoNAOldo::visionMsg msg;
-        cout << "\nEnter Distance to Ball [m]: ";
+        cout << "Enter Distance to Ball [m]: ";
         cin >> msg.ball_distance;
-        cout << "\nEnter ball position relative to goal: ";
+        cout << "Enter ball position relative to goal: ";
         cin >> msg.ball_rel_goal;
-        cout << "\nEnter ball position relative to image: ";
+        cout << "Enter ball position relative to image: ";
         cin >> msg.ball_rel_image;
+        cout << "\033[1;33m-------------------------------------------------------\033[0m\n";
 
         // Send Dummy Message:
         visionPub.publish(msg);
