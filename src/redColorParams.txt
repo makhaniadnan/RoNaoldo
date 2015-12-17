@@ -1,0 +1,21 @@
+Mat image_hsv_redonly;
+// Convert to HSV and extract colors:
+try {
+  cvtColor(image,image_hsv,CV_BGR2HSV);
+
+  Scalar redMin2 = Scalar(0*180,0.5*255,0.3*255);
+  Scalar redMax2 = Scalar(30.0/360.0*180,1*255,1*255);
+
+  Mat image_hsv_blob1;
+  inRange(image_hsv, redMin2, redMax2, image_hsv_blob1);
+
+  Mat image_hsv_blob2;
+  Scalar redMin3 = Scalar(330/360*180,0.5*255,0.3*255);
+  Scalar redMax3 = Scalar(360.0/360.0*180,1*255,1*255);
+  inRange(image_hsv, redMin3, redMax3, image_hsv_blob2);
+
+
+  add(image_hsv_blob1, image_hsv_blob2, image_hsv_redonly, noArray());
+  imshow("HSV blob extraction 1", image_hsv_blob1);
+  imshow("HSV blob extraction 2", image_hsv_blob2);
+  imshow("HSV blob extraction", image_hsv_redonly);
