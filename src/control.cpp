@@ -85,7 +85,7 @@ public:
     ros::Publisher walk_pub;
 
     // movement status Subscriber:
-    ros::Subscriber moveStatus;
+    //ros::Subscriber moveStatus;
 
     // Spin Thread:
     boost::thread *spin_thread;
@@ -117,16 +117,30 @@ public:
     // Control Parameters (KICK CONTROLLER):
     // TODO
 
+    // Joint States:
+    sensor_msgs::JointState LEFT_ARM_STATE;
+    sensor_msgs::JointState RIGHT_ARM_STATE;
+    sensor_msgs::JointState HEAD_LEGS_STATE;
+    ros::Subscriber jointStatesSub;
+    ros::Subscriber jointActionStatusSub;
+    ros::Publisher jointCommandPub;
+    float JOINT_SPEED = 0.05;
+    int JOINT_ACTION_STATUS = 0;
+
     Control(NodeHandle n) {
 
 		nh_ = n;
 
       // Setup Publisher and Subscriber:
-  		controlSub = nh_.subscribe("visionMessage", 10, &Control::visionMessageCallback, this);
-  		controlPub = nh_.advertise<RoNAOldo::controlMsg>("controlMessage", 10);
+  		controlSub = nh_.subscribe("relative_position", 1, &Control::visionMessageCallback, this);
+  		controlPub = nh_.advertise<RoNAOldo::controlMsg>("controlMessage", 1);
       walk_pub = nh_.advertise<geometry_msgs::Pose2D>("/nao/cmd_pose", 1);
       //moveStatus = nh_.subscribe("/nao/joint_angles_status/status", 1, &Control::bodyPoseCallback, this);
+      jointStatesSub = nh_.subscribe("/nao/joint_states", 1, &Control::jointStatusCallback, this);
+      jointActionStatusSub = nh_.subscribe("/nao/joint_angles_action/status",1, &Control::jointActionStatusCallback, this);
+      jointCommandPub = nh_.advertise<naoqi_bridge_msgs::JointAnglesWithSpeedActionGoal>("/nao/joint_angles_action/goal", 1);
 
+      // To keep the node alive:
       stop_thread=false;
       spin_thread=new boost::thread(&spinThread);
 
@@ -339,8 +353,18 @@ public:
       // TODO
       // 1. Stay on one foot
       // 2. Perfrom Kick
-      walker(0, 0.05, 0);
-      walker(0.2, 0, 0);
+      //walker(0, 0.05, 0);
+      //walker(0.2, 0, 0);
+
+      // Bring head into default position:
+      spinOnce();
+      sensor_msgs::JointState adjustHead;
+      adjustHead.name.push_back("LWristYaw");
+      //adjustHead.name.push_back("HeadPitch");
+      adjustHead.position.push_back(0.0);
+      //adjustHead.position.push_back(0.3);
+      mooveJoints(adjustHead);
+      spinOnce();
 
     }
 
@@ -365,13 +389,7 @@ public:
 
       // Wait until movement is finished:
       sleep(5);
-
-      //while( //movement still active )
-      //{
-      //
-      //}
-      // rostopic list
-      // rostopic info /nao/...
+      // TODO: Find a better method
 
       if (DEBUG == true) {
         cout << "\033[1;32mMovement done!\033[0m" << endl;
@@ -381,11 +399,13 @@ public:
 
     void visionMessageCallback(const RoNAOldo::visionMsg::ConstPtr &inMessage) {
 
-      BALL_REL_TO_GOAL = inMessage->ball_rel_goal;
-      BALL_DIST = inMessage->ball_distance;
-      BALL_REL_TO_IMAGE = inMessage->ball_rel_image;
+      if (inMessage->ball_detected_in_lastsec && inMessage->left_marker_detected_in_lastsec && inMessage->right_marker_detected_in_lastsec) {
+        BALL_REL_TO_GOAL = inMessage->ball_rel_goal;
+        BALL_DIST = inMessage->ball_distance / 1000.0;
+        BALL_REL_TO_IMAGE = inMessage->ball_rel_image;
 
-      DATA_IS_NEW = true;
+        DATA_IS_NEW = true;
+      }
 
     }
 
@@ -397,6 +417,83 @@ public:
         //}
 
     //}
+
+    void jointStatusCallback(const sensor_msgs::JointState::ConstPtr &jointState) {
+
+      LEFT_ARM_STATE.name.clear();
+      LEFT_ARM_STATE.position.clear();
+      RIGHT_ARM_STATE.name.clear();
+      RIGHT_ARM_STATE.position.clear();
+      HEAD_LEGS_STATE.name.clear();
+      HEAD_LEGS_STATE.position.clear();
+
+      LEFT_ARM_STATE.header.stamp=ros::Time::now();
+
+      LEFT_ARM_STATE.name.push_back(jointState->name.at(2));
+      LEFT_ARM_STATE.position.push_back(jointState->position.at(2));
+      LEFT_ARM_STATE.name.push_back(jointState->name.at(3));
+      LEFT_ARM_STATE.position.push_back(jointState->position.at(3));
+      LEFT_ARM_STATE.name.push_back(jointState->name.at(4));
+      LEFT_ARM_STATE.position.push_back(jointState->position.at(4));
+      LEFT_ARM_STATE.name.push_back(jointState->name.at(5));
+      LEFT_ARM_STATE.position.push_back(jointState->position.at(5));
+      LEFT_ARM_STATE.name.push_back(jointState->name.at(6));
+      LEFT_ARM_STATE.position.push_back(jointState->position.at(6));
+
+      RIGHT_ARM_STATE.name.push_back(jointState->name.at(20));
+      RIGHT_ARM_STATE.position.push_back(jointState->position.at(20));
+      RIGHT_ARM_STATE.name.push_back(jointState->name.at(21));
+      RIGHT_ARM_STATE.position.push_back(jointState->position.at(21));
+      RIGHT_ARM_STATE.name.push_back(jointState->name.at(22));
+      RIGHT_ARM_STATE.position.push_back(jointState->position.at(22));
+      RIGHT_ARM_STATE.name.push_back(jointState->name.at(23));
+      RIGHT_ARM_STATE.position.push_back(jointState->position.at(23));
+      RIGHT_ARM_STATE.name.push_back(jointState->name.at(24));
+      RIGHT_ARM_STATE.position.push_back(jointState->position.at(24));
+
+      HEAD_LEGS_STATE.name.push_back(jointState->name.at(0));
+      HEAD_LEGS_STATE.position.push_back(jointState->position.at(0));
+      HEAD_LEGS_STATE.name.push_back(jointState->name.at(1));
+      HEAD_LEGS_STATE.position.push_back(jointState->position.at(1));
+      for(int i=7; i<20;i++)
+      {
+          HEAD_LEGS_STATE.name.push_back(jointState->name.at(i));
+          HEAD_LEGS_STATE.position.push_back(jointState->position.at(i));
+          //cout << i << " " << jointState->name.at(i) << ": " << jointState->position.at(i) << endl;
+      }
+      HEAD_LEGS_STATE.name.push_back(jointState->name.at(25));
+      HEAD_LEGS_STATE.position.push_back(jointState->position.at(25));
+      //cout << jointState->position.at(13) << endl; //LAnkleRoll
+
+    }
+
+    void mooveJoints(sensor_msgs::JointState joints) {
+
+      naoqi_bridge_msgs::JointAnglesWithSpeedActionGoal action_execute;
+			stringstream ss;
+			ss << ros::Time::now().sec;
+			action_execute.goal_id.id = "move_" + ss.str();
+			action_execute.goal.joint_angles.speed = JOINT_SPEED;
+			action_execute.goal.joint_angles.relative = 0;
+			action_execute.goal.joint_angles.joint_names = joints.name;
+      for (int i = 0; i < joints.position.size(); i++) {
+        action_execute.goal.joint_angles.joint_angles.push_back((float)joints.position.at(i));
+      }
+      action_execute.header.stamp = ros::Time::now();
+      jointCommandPub.publish(action_execute);
+      JOINT_ACTION_STATUS = 0;
+      ros::Rate rate_sleep(10);
+      while(JOINT_ACTION_STATUS != 3 && nh_.ok()) {
+        rate_sleep.sleep();
+      }
+
+    }
+
+    void jointActionStatusCallback(const actionlib_msgs::GoalStatusArray::ConstPtr& msg) {
+		  if(!msg->status_list.empty()) {
+			  JOINT_ACTION_STATUS = (int)msg->status_list.at(0).status;
+		  }
+    }
 
 };
 
