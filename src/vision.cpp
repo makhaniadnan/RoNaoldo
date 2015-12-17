@@ -261,6 +261,7 @@ public:
 
       // Blob Extraction:
       Mat image_keypoints;
+      vector<KeyPoint> keypoints;
       try{
         Scalar redMin2 = Scalar(0*180,0.2*255,0.8*255);
         Scalar redMax2 = Scalar(30.0/360.0*180,1*255,1*255);
@@ -285,9 +286,9 @@ public:
         params.filterByColor = false;
         params.filterByCircularity = true;
         params.filterByArea = true;
-        params.minArea = 500.0f;
-        params.maxArea = 2000.0f;
-        params.minCircularity = 0.5f;
+        params.minArea = 400.0f;
+        params.maxArea = 3000.0f;
+        params.minCircularity = 0.4f;
         params.maxCircularity = 1.0f;
         params.minConvexity = 0.5;
         params.maxConvexity = 1.0;
@@ -296,7 +297,6 @@ public:
         SimpleBlobDetector blob_detector(params);
 
         // detect the blobs keypoints (center of mass):
-        vector<KeyPoint> keypoints;
         blob_detector.detect(image_dilate, keypoints);
 
         drawKeypoints(image_dilate, keypoints, image_keypoints);
@@ -332,6 +332,25 @@ public:
 
       const Scalar rect_color = Scalar(0,255,0);
       rectangle(image_keypoints, color_camshift_region_of_interest,rect_color,5);
+
+
+      //if camshift detected a "ball"
+      if(color_camshift_region_of_interest.area() > 1.0) {
+        //check if blob detection also got one
+        double rect_center_x = color_camshift_region_of_interest.x + (color_camshift_region_of_interest.width/2);
+        double rect_center_y = color_camshift_region_of_interest.y + (color_camshift_region_of_interest.height/2);
+
+        // extract the x y coordinates of the keypoints:
+        for (int i=0; i<keypoints.size(); i++){
+           double distance = norm(keypoints[i].pt - Point2f(rect_center_x,rect_center_y));
+           ROS_INFO("distance is %f", distance);
+           if(distance < 10.0) {
+             ROS_INFO("found our ball in camshift and blob detection");
+             ball_detected = true;
+             break;
+           }
+        }
+      }
 
 
       //draw keypoints
