@@ -27,6 +27,7 @@
 #include <naoqi_bridge_msgs/Bumper.h>
 #include <naoqi_bridge_msgs/TactileTouch.h>
 #include <naoqi_bridge_msgs/JointAnglesWithSpeedAction.h>
+#include <naoqi_bridge_msgs/BodyPoseActionGoal.h>
 #include <std_srvs/Empty.h>
 #include <eigen3/Eigen/Eigen>
 #include <tf/transform_listener.h>
@@ -83,6 +84,9 @@ public:
     // walker publisher:
     ros::Publisher walk_pub;
 
+    // movement status Subscriber:
+    ros::Subscriber moveStatus;
+
     // Spin Thread:
     boost::thread *spin_thread;
 
@@ -95,27 +99,38 @@ public:
     bool DATA_IS_NEW = false;
     float BALL_REL_TO_IMAGE = 0;
 
-    // Control Paramers:
-    bool ORIENTATION_OK = false;
-    float ORIENTATION_GAIN = 0;
-    float POSITION_GAIN = 0;
-    float APPROACH_GAIN = 0;
-    float ORIENTATION_TOLERANCE = 0.03;
-    float POSITION_TOLERANCE = 0.03;
+    // Control Paramers (ORIENTATION CONTROLLER):
+    bool ORIENTATION_OK   = false;
+    float ORI_ORI_GAIN    = 0;
+    float ORI_ORI_TOL     = 0.03;
+    float ORI_POS_GAIN    = 0;
+    float ORI_POS_TOL     = 0.03;
+
+    // Control Parameters (APPROACH CONTROLLER):
+    bool APPROACH_OK     = false;
+    //float APP_ORI_GAIN  = 0;
+    //float APP_ORI_TOL   = 0.03;
+    float APP_POS_GAIN  = 0;
+    float APP_POS_TOL   = 0.3;
+    //bool BALL_OFFSET_CORRECTED = false;
+
+    // Control Parameters (KICK CONTROLLER):
+    // TODO
 
     Control(NodeHandle n) {
 
 		nh_ = n;
 
-    // Setup Publisher and Subscriber:
-		controlSub = nh_.subscribe("visionMessage", 10, &Control::visionMessageCallback, this);
-		controlPub = nh_.advertise<RoNAOldo::controlMsg>("controlMessage", 10);
-    walk_pub = nh_.advertise<geometry_msgs::Pose2D>("/nao/cmd_pose", 1);
+      // Setup Publisher and Subscriber:
+  		controlSub = nh_.subscribe("visionMessage", 10, &Control::visionMessageCallback, this);
+  		controlPub = nh_.advertise<RoNAOldo::controlMsg>("controlMessage", 10);
+      walk_pub = nh_.advertise<geometry_msgs::Pose2D>("/nao/cmd_pose", 1);
+      //moveStatus = nh_.subscribe("/nao/joint_angles_status/status", 1, &Control::bodyPoseCallback, this);
 
-    stop_thread=false;
-    spin_thread=new boost::thread(&spinThread);
+      stop_thread=false;
+      spin_thread=new boost::thread(&spinThread);
 
-  }
+    }
 
     ~Control() {
         stop_thread=true;
@@ -126,8 +141,7 @@ public:
     void main_loop() {
   		ros::Rate rate_sleep(1);
 
-  		while(nh_.ok())
-  		{
+  		while(nh_.ok()) {
 
         if (DATA_IS_NEW == true) {
 
@@ -137,30 +151,82 @@ public:
             cout << "    \033[3mBALL_DST            \033[0m : " << setw(10) << BALL_DIST << endl;
             cout << "    \033[3mBALL_REL_TO_GOAL    \033[0m : " << setw(10) << BALL_REL_TO_GOAL << endl;
             cout << "    \033[3mBALL_REL_TO_IMAGE   \033[0m : " << setw(10) << BALL_REL_TO_IMAGE << endl;
+            cout << "    \033[3mORIENTATION_OK      \033[0m : " << setw(10) << ORIENTATION_OK << endl;
+            cout << "    \033[3mAPPROACH_OK         \033[0m : " << setw(10) << APPROACH_OK << endl;
           }
 
           // ----- BEGIN CONTROL ALGORITHM -----
 
-          // Check if Orientation is OK:
-          if (BALL_REL_TO_IMAGE >= -ORIENTATION_TOLERANCE && BALL_REL_TO_IMAGE <= ORIENTATION_TOLERANCE) {
-            if (BALL_REL_TO_GOAL >= -POSITION_TOLERANCE && BALL_REL_TO_GOAL <= POSITION_TOLERANCE) {
-              if(true /* Condition for Approach*/) {
-                if(true /* Condition for Kick */) {
-                  controlKick();
+          // ORIENTATION CONTROLLER:
+          if (ORIENTATION_OK == false && APPROACH_OK == false) {
+
+            // Check if orientation is ok:
+            if (BALL_REL_TO_IMAGE >= -ORI_ORI_TOL && BALL_REL_TO_IMAGE <= ORI_ORI_TOL) {
+
+              // Check if position is ok:
+              if (BALL_REL_TO_GOAL >= -ORI_POS_TOL && BALL_REL_TO_GOAL <= ORI_POS_TOL) {
+
+                // ORIENTATION CONTROL done:
+                ORIENTATION_OK = true;
+
+                if (DEBUG == true) {
+                  cout << "\033[1;33mOrientation control is now done!\033[0m" << endl;
                 }
+
               }
               else {
-                controlApproach();
+
+                // Perform ORI-POS-CONTROL:
+                controlOriPos();
+
               }
             }
             else {
-              // SIDESTEP CONTROLLER:
-              controlPosition();
+
+              // Perform ORI_ORI_CONTROL:
+              controlOri();
+
             }
+
           }
-          else {
-            // ORIENTATION CONTROLLER:
-            controlOrientation();
+          // APPROACH CONTROLLER:
+          else if (ORIENTATION_OK == true && APPROACH_OK == false) {
+
+            // Check if orientation is ok:
+            if (BALL_REL_TO_IMAGE >= -ORI_ORI_TOL && BALL_REL_TO_IMAGE <= ORI_ORI_TOL) {
+
+              // Check if position is ok:
+              if (BALL_DIST < APP_POS_TOL) {
+
+                // APPROACH CONTROL done:
+                APPROACH_OK = true;
+
+                if (DEBUG == true) {
+                  cout << "\033[1;33mApproach control is now done!\033[0m" << endl;
+                }
+
+              }
+              else {
+
+                // Perform ORI-POS-CONTROL:
+                controlAppPos();
+
+              }
+            }
+            else {
+
+              // Perform ORI_ORI_CONTROL:
+              controlOri();
+
+            }
+
+          }
+          // KICK CONTROLLER:
+          else if (ORIENTATION_OK == true && APPROACH_OK == true) {
+
+            // Perform Kick:
+            controlKick();
+
           }
 
           // ----- END CONTROL ALGORITHM -----
@@ -178,67 +244,88 @@ public:
     }
 
     // ORIENTATION CONTROLLER:
-    void controlOrientation () {
+    void controlOri() {
 
       // calculate gain
-      ORIENTATION_GAIN = abs(BALL_REL_TO_IMAGE);
+      ORI_ORI_GAIN = abs(BALL_REL_TO_IMAGE) / 1.0;
 
       // Check where ball is relative to image
       if (BALL_REL_TO_IMAGE > 0) {      // right side in image
         if (DEBUG == true) {
           cout << "\033[1;33mPerforming Orientation Control:\033[0m" << endl;
           cout << "    \033[3mcondition            \033[0m: " << " (BALL_REL_TO_IMAGE > 0)" << endl;
-          cout << "    \033[3mORIENTATION_GAIN     \033[0m: " << setw(10) << ORIENTATION_GAIN  << endl;
+          cout << "    \033[3mORIENTATION_GAIN     \033[0m: " << setw(10) << ORI_ORI_GAIN  << endl;
         }
-        walker(0, 0, -ORIENTATION_GAIN);
+        walker(0, 0, -ORI_ORI_GAIN);
       }
       else {                            // left side in image
         if (DEBUG == true) {
           cout << "\033[1;33mPerforming Orientation Control:\033[0m" << endl;
           cout << "    \033[3mcondition            \033[0m: " << " (BALL_REL_TO_IMAGE < 0)" << endl;
-          cout << "    \033[3mORIENTATION_GAIN     \033[0m: " << setw(10) << ORIENTATION_GAIN  << endl;
+          cout << "    \033[3mORIENTATION_GAIN     \033[0m: " << setw(10) << ORI_ORI_GAIN  << endl;
         }
-        walker(0, 0, ORIENTATION_GAIN);
+        walker(0, 0, ORI_ORI_GAIN);
       }
 
     }
 
     // POSITION CONTROLLER:
-    void controlPosition() {
+    void controlOriPos() {
 
       // Calculate stepsize:
-      POSITION_GAIN = abs(BALL_REL_TO_GOAL) / 10.0;
+      ORI_POS_GAIN = abs(BALL_REL_TO_GOAL) / 5.0;
 
       // Check where ball is relative to goal
       if (BALL_REL_TO_GOAL > 0) {       // right of goal
         if (DEBUG == true) {
           cout << "\033[1;33mPerforming Position Control:\033[0m" << endl;
           cout << "    \033[3mcondition            \033[0m: " << " (BALL_REL_To_IMAGE > 0)" << endl;
-          cout << "    \033[3mPOSITION_GAIN        \033[0m: " << setw(10) << POSITION_GAIN  << endl;
+          cout << "    \033[3mPOSITION_GAIN        \033[0m: " << setw(10) << ORI_POS_GAIN  << endl;
         }
-        walker(0, POSITION_GAIN, 0);
+        walker(0, -ORI_POS_GAIN, 0);
       }
       else {                            // left of goal
         if (DEBUG == true) {
           cout << "\033[1;33mPerforming Position Control:\033[0m" << endl;
           cout << "    \033[3mcondition            \033[0m: " << " (BALL_REL_To_IMAGE < 0)" << endl;
-          cout << "    \033[3mPOSITION_GAIN        \033[0m: " << setw(10) << POSITION_GAIN  << endl;
+          cout << "    \033[3mPOSITION_GAIN        \033[0m: " << setw(10) << ORI_POS_GAIN  << endl;
         }
-        walker(0, -POSITION_GAIN, 0);
+        walker(0, ORI_POS_GAIN, 0);
       }
 
     }
 
     // APPROACHING CONTROLLER:
-    void controlApproach() {
+    void controlAppPos() {
 
       if (DEBUG == true) {
-        cout << "\033[1;33mPerforming Approach Control:\033[0m" << endl;
+        cout << "\033[1;33mPerforming Approach Control: \033[0m" << endl;
       }
 
-      // TODO
-      // 1. Control Offset for kicking with right foot
-      // 2. Control Approach to ball
+      // Correct ball offset if not already done:
+      //if (BALL_OFFSET_CORRECTED == false) {
+
+      //  if (DEBUG == true) {
+      //    cout << "Correcting ball offset\033[0m" << endl;
+      //  }
+
+      // Walk to the left:
+      //  walker(0, 0.05, 0);
+
+      // Set BALL_OFFSET_CORRECTED to true:
+      //  BALL_OFFSET_CORRECTED = true;
+
+      //}
+      // Approach control:
+      //else {
+
+      // Approach gain:
+      APP_POS_GAIN = BALL_DIST * 0.2;
+
+      // Approach the ball:
+      walker(APP_POS_GAIN, 0, 0);
+
+      //}
 
     }
 
@@ -252,12 +339,13 @@ public:
       // TODO
       // 1. Stay on one foot
       // 2. Perfrom Kick
+      walker(0, 0.05, 0);
+      walker(0.2, 0, 0);
 
     }
 
     // Walker function:
-    void walker(double x, double y, double theta)
-  	{
+    void walker(double x, double y, double theta) {
 
       if (DEBUG == true) {
         cout << "\033[1;34mMoving:\033[0m" << endl;
@@ -301,10 +389,18 @@ public:
 
     }
 
+    //void bodyPoseCallback(const actionlib_msgs::GoalStatusArray::ConstPtr &inMessage) {
+
+        //cout << "Pose status size: " << inMessage->status_list.size() << endl;
+        //if(!inMessage->status_list.empty()) {
+        //  cout << "Pose Status: " << inMessage->status_list.at(0).status; // << inMessage->goal << endl;
+        //}
+
+    //}
+
 };
 
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv) {
     ros::init(argc, argv, "RoNAOldo_control");
 
     ros::NodeHandle n;
