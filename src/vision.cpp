@@ -50,7 +50,7 @@
 
 // Include customn messages:
 #include "RoNAOldo/visionMsg.h"
-#include "RoNAOldo/controlMsg.h"
+#include "RoNAOldo/ballMsg.h"
 
 //using namespace aruco;
 using namespace cv;
@@ -82,6 +82,7 @@ public:
 
     // publisher
     ros::Publisher visionPub;
+    ros::Publisher ballCenterPub;
 
     //Image tope camera subscriber for ball
     image_transport::Subscriber top_sub;
@@ -118,6 +119,7 @@ public:
 
     bool ball_detected;
 
+    Rect color_camshift_region_of_interest = Rect(229,325,92,92);  // for mor_temp
 
 
     // Counter: <just for testing>
@@ -127,10 +129,8 @@ public:
 
 		nh_ = n;
 
-		visionSub = nh_.subscribe("controlMessage", 10, &Vision::controlMessageCallback, this);
-
 		visionPub = nh_.advertise<RoNAOldo::visionMsg>("visionMessage", 10);
-    visionPub = nh_.advertise<RoNAOldo::visionMsg>("ball", 10);
+    ballCenterPub = nh_.advertise<RoNAOldo::ballMsg>("ball", 10);
 
 		count = 0;
 
@@ -156,7 +156,8 @@ public:
     // read image and extract area of interest from template img
     try
     {
-        image_template = imread("/home/hrs2015/catkin_ws/src/RoNaoldo/images/mor_temp.jpg");
+        //TODO: change to parameter or something!
+        image_template = imread("/home/hrs2015/catkin_ws_team2/src/RoNaoldo/images/mor_temp.jpg");
         //image_template = imread("/home/hrs2015/catkin_ws/src/RoNaoldo/images/nit_temp.jpg");
 
 
@@ -233,6 +234,102 @@ public:
       }
 
     }
+
+
+    void detectBallUsingColorBlob(Mat image)
+    {
+      Mat image_color;
+      Mat image_hsv;
+      Mat image_dilate;
+      // Convert to HSV and extract colors:
+      try {
+        cvtColor(image,image_hsv,CV_BGR2HSV);
+
+        Scalar redMin = Scalar(0*180,0.4*255,0.9*255);
+        Scalar redMax = Scalar(30.0/360.0*180,1*255,1*255);
+
+
+        cout << "redMin" << redMin << endl;
+        cout << "redMax" << redMax << endl;
+        inRange(image_hsv, redMin, redMax, image_color);
+        imshow("Colour extraction", image_color);
+
+        // Dilate and/or Erode:
+        int erosion_size = 5;
+        Mat element = getStructuringElement( MORPH_ELLIPSE,
+                                         Size( 2*erosion_size + 1, 2*erosion_size+1 ),
+                                         Point( erosion_size, erosion_size ) );
+        dilate(image_color, image_dilate, element);
+        erode( image_dilate, image_dilate, element );
+        //imshow("Blob Extraction", image_dilate);
+        waitKey(30);
+      }
+      catch (...) {
+        ROS_ERROR("Error in Colour Extraction!");
+      }
+
+      // Blob Extraction:
+      Mat image_keypoints;
+      try{
+
+        // Initialize Blob detector class:
+        SimpleBlobDetector::Params params;
+        params.minDistBetweenBlobs = 50.0f;
+        params.filterByInertia = false;
+        params.filterByConvexity = false;
+        params.filterByColor = false;
+        params.filterByCircularity = false;
+        params.filterByArea = true;
+        params.minArea = 500.0f;
+        params.maxArea = 2000.0f;
+        SimpleBlobDetector blob_detector(params);
+
+        // detect the blobs keypoints (center of mass):
+        vector<KeyPoint> keypoints;
+        blob_detector.detect(image_dilate, keypoints);
+
+        drawKeypoints(image_dilate, keypoints, image_keypoints);
+
+        // extract the x y coordinates of the keypoints:
+        for (int i=0; i<keypoints.size(); i++){
+           float X = keypoints[i].pt.x;
+           float Y = keypoints[i].pt.y;
+           ROS_INFO("DETECTED BLOB %f %f", X, Y );
+
+          //draw keypoiints
+           circle(image_keypoints, Point(X,Y), 30, Scalar(255,0,0), 10);
+        }
+
+
+      }
+      catch (...) {
+        ROS_ERROR("Error in Blob Detection!");
+      }
+
+
+      //ensure it is in valid area&
+      color_camshift_region_of_interest = color_camshift_region_of_interest & Rect(0, 0, image_color.cols, image_color.rows);
+      if(color_camshift_region_of_interest.area() < 1) {
+          color_camshift_region_of_interest = Rect(0, 0, image_color.cols, image_color.rows);
+      }
+      cout << "region of interest" << color_camshift_region_of_interest << endl;
+
+      //termcriteria is type, maxCount, epsilon (changes smaller than epsilon, stop searching)
+      CamShift(image_color,color_camshift_region_of_interest, TermCriteria((TermCriteria::COUNT || TermCriteria::EPS), 40, 1));
+
+      cout << "region of interest" << color_camshift_region_of_interest << endl;
+
+      const Scalar rect_color = Scalar(0,255,0);
+      rectangle(image_keypoints, color_camshift_region_of_interest,rect_color,5);
+
+
+      //draw keypoints
+      //drawKeypoints(image_dilate, keypoints, image_keypoints);
+      imshow("Blob Extraction", image_keypoints);
+
+
+    }
+
     void detect_Ball(const sensor_msgs::ImageConstPtr& msg)
     {
       // Convert to bgr8 and display:
@@ -245,6 +342,14 @@ public:
       {
           ROS_ERROR("Could not convert from '%s' to 'bgr8'.", msg->encoding.c_str());
       }
+
+      //try to detect ball using blop and color Detection
+      detectBallUsingColorBlob(image);
+
+
+
+
+
       // Back Projection + mean/cam shift tracking:
       try {
           ball_detected = false;
@@ -255,28 +360,28 @@ public:
           calcBackProject( &image_channel[0], 1, chnls, hist, backproj, ranges); //calculate backprojection
           bitwise_and(backproj,image_mask,backproj);
           //meanShift(backproj,region_of_interest, TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 10, 1));
-          if( region_of_interest.height > 0.0 && region_of_interest.width > 0.0)
-            {
-                CamShift(backproj,region_of_interest, TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 10, 1));
+          //if( region_of_interest.height < 0.0 || region_of_interest.width < 0.0 || region_of_interest.x || region_of_interest.y)
+          region_of_interest = Rect(229,325,92,92);  // for mor_temp
+                CamShift(backproj,region_of_interest, TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 20, 1));
                 rectangle(image_ball, region_of_interest,1,2,1,0);
                 if( ( (float)region_of_interest.height/(float)region_of_interest.width) < 1.5 && ((float)region_of_interest.width/(float)region_of_interest.height ) > .6 )
                 { ball_detected = true; }
-            }
+
 
 
           imshow("Tracking", image_ball);
+          imshow("Backproj",backproj);
           waitKey(30);
       }
       catch (...) {
           ROS_ERROR("Error in meanshift/ camshift!");
       }
 
-      // Detect Markers
-
-
       // Prepare message for control
+
+      //define it, so wen can always use it for publish
+      float distance = -1.0;
       try {
-        float distance = -1.0;
         float ball_pos_goal = -1.0;
         float ball_pos_img = -1.0;
         undistort(image,image_undist,camMatrix,dist);
@@ -284,24 +389,26 @@ public:
         {
           distance = f2 * (70.00/ (float) region_of_interest.height);
         }
-
-
-
-
       } catch (...) {
           ROS_ERROR("cant get the distance to the ball");
       }
 
+      try {
+        if(ball_detected) {
+          RoNAOldo::ballMsg ballMsg;
+
+          ballMsg.ball_distance = distance;
+          ballMsg.ball_center_x = region_of_interest.x + (region_of_interest.width/2);
+
+          ballCenterPub.publish(ballMsg);
+        }
+      } catch (...) {
+          ROS_ERROR("cannot publish ball position");
+      }
 
     }
-
-    void controlMessageCallback(const RoNAOldo::controlMsg::ConstPtr &inMessage) {
-
-        cout << inMessage->targetReached << endl;
-
-    }
-
 };
+
 
 int main(int argc, char** argv)
 {
@@ -311,7 +418,10 @@ int main(int argc, char** argv)
     namedWindow("ROI");
     namedWindow("hist");
     namedWindow("Tracking");
+    namedWindow("Backproj");
     namedWindow("goal");
+    namedWindow("Colour extraction");
+    namedWindow("Blob Extraction");
 
 
     startWindowThread();

@@ -9,7 +9,7 @@
 #include <aruco/cvdrawingutils.h>
 
 //include custom messages
-#include "RoNAOldo/goalPosition.h"
+#include "RoNAOldo/goalPositionMsg.h"
 
 namespace vision {
 class Marker {
@@ -25,7 +25,6 @@ public:
 
 	image_transport::Subscriber subscriberImage;
 
-	ros::Subscriber subscriberBallPosition;
 
 	Marker(ros::NodeHandle n)
 	{
@@ -33,7 +32,7 @@ public:
 
 
 		//publish ballOffMiddle
-		goalPublisher = _nh.advertise<RoNAOldo::goalPosition>("goalPosition", 10);
+		goalPublisher = _nh.advertise<RoNAOldo::goalPositionMsg>("goalPosition", 10);
 
 		 initCameraParameters();
 
@@ -109,7 +108,7 @@ public:
 		// size of marker
 
 		//publish our message
-		RoNAOldo::goalPosition msg;
+		RoNAOldo::goalPositionMsg msg;
 
 		float markerSize = 0.135; //13.5mm
 	    MDetector.detect(image, Markers, cameraParameters, markerSize);

@@ -20,7 +20,8 @@ add_message_files(
   FILES
   visionMsg.msg
   controlMsg.msg
-  goalPosition.msg
+  goalPositionMsg.msg
+  ballMsg.msg
 )
 
 generate_messages(
