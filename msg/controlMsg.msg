@@ -1,1 +1,3 @@
 int64 targetReached
+float32 ballPositionX
+float32 ballPositionY
