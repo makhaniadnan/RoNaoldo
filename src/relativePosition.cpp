@@ -108,15 +108,18 @@ public:
 				msg.right_marker_detected_in_lastsec = true;
 		}
 
-		if(msg.ball_detected_in_lastsec &
-			msg.left_marker_detected_in_lastsec &
+		if(msg.ball_detected_in_lastsec &&
+			msg.left_marker_detected_in_lastsec &&
 			msg.right_marker_detected_in_lastsec
 		)	{
 			float goal_distance_half = (last_goal_msg.marker1_center_x - last_goal_msg.marker2_center_x) / 2.0;
 
 
-			msg.ball_rel_goal  = ((last_ball_msg.ball_center_x - last_goal_msg.marker1_center_x) / goal_distance_half) - 1;
-			msg.ball_rel_image  =  (last_ball_msg.ball_center_x  / (last_ball_msg.image_width/2.0)) - 1;
+			msg.ball_rel_goal  = ((last_ball_msg.ball_center_x - last_goal_msg.marker1_center_x) / goal_distance_half) - 1.0;
+			msg.ball_rel_image  =  (1.0*last_ball_msg.ball_center_x  / (last_ball_msg.image_width/2.0)) - 1.0;
+			cout << "last ball center" << last_ball_msg << endl;
+			cout << "last goal" << last_goal_msg << endl;
+			cout << "our msg" << msg << endl;
 
 			msg.ball_distance = last_ball_msg.ball_distance;
 		}

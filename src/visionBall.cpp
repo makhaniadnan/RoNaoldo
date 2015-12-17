@@ -340,11 +340,13 @@ public:
       //focal length of top camera
       double f2 = 553.736023;
       //if camshift detected a "ball"
+
       if(color_camshift_region_of_interest.area() > 1.0) {
         //check if blob detection also got one
-        double rect_center_x = color_camshift_region_of_interest.x + (color_camshift_region_of_interest.width/2);
-        double rect_center_y = color_camshift_region_of_interest.y + (color_camshift_region_of_interest.height/2);
+        rect_center_x = color_camshift_region_of_interest.x + (color_camshift_region_of_interest.width/2.0);
+        rect_center_y = color_camshift_region_of_interest.y + (color_camshift_region_of_interest.height/2.0);
         ball_distance = f2 * (70.00/ (0.5*(color_camshift_region_of_interest.height + color_camshift_region_of_interest.width)));
+
 
         // extract the x y coordinates of the keypoints:
         for (int i=0; i<keypoints.size(); i++){
@@ -368,8 +370,8 @@ public:
         if(ball_detected) {
           RoNAOldo::ballMsg ballMsg;
 
-          ballMsg.ball_distance = ball_distance;
-          ballMsg.ball_center_x = rect_center_x;
+          ballMsg.ball_distance = ball_distance / 1000.0;
+          ballMsg.ball_center_x = (float) rect_center_x;
           ballMsg.image_width = image.cols;
 
           ballCenterPub.publish(ballMsg);
