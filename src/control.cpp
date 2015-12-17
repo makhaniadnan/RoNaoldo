@@ -433,7 +433,7 @@ public:
 
       if (inMessage->ball_detected_in_lastsec && inMessage->left_marker_detected_in_lastsec && inMessage->right_marker_detected_in_lastsec) {
         BALL_REL_TO_GOAL = inMessage->ball_rel_goal;
-        BALL_DIST = inMessage->ball_distance / 1000.0;
+        BALL_DIST = inMessage->ball_distance;
         BALL_REL_TO_IMAGE = inMessage->ball_rel_image;
 
         DATA_IS_NEW = true;
