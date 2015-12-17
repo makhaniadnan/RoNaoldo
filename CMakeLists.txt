@@ -36,16 +36,16 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
-add_executable(RoNAOldo_vision src/vision.cpp)
-target_link_libraries(RoNAOldo_vision ${catkin_LIBRARIES})
-add_dependencies(RoNAOldo_vision RoNAOldo_generate_message_cpp)
+add_executable(RoNAOldo_ballVision src/visionBall.cpp)
+target_link_libraries(RoNAOldo_ballVision ${catkin_LIBRARIES})
+add_dependencies(RoNAOldo_ballVision RoNAOldo_generate_message_cpp)
 
 add_executable(RoNAOldo_dummyVision src/dummyVision.cpp)
 target_link_libraries(RoNAOldo_dummyVision ${catkin_LIBRARIES})
 add_dependencies(RoNAOldo_dummyVision RoNAOldo_generate_message_cpp)
 
 
-add_executable(RoNAOldo_vision_marker src/vision-marker.cpp)
+add_executable(RoNAOldo_vision_marker src/visionMarker.cpp)
 target_link_libraries(RoNAOldo_vision_marker ${catkin_LIBRARIES})
 add_dependencies(RoNAOldo_vision_marker RoNAOldo_generate_message_cpp)
 
@@ -54,26 +54,31 @@ target_link_libraries(RoNAOldo_control ${catkin_LIBRARIES})
 add_dependencies(RoNAOldo_control RoNAOldo_generate_message_cpp)
 
 
+add_executable(RoNAOldo_relative_position src/relativePosition.cpp)
+target_link_libraries(RoNAOldo_relative_position ${catkin_LIBRARIES})
+add_dependencies(RoNAOldo_relative_position RoNAOldo_generate_message_cpp)
+
 find_package(Eigen REQUIRED)
-target_link_libraries(RoNAOldo_vision ${Eigen_LIBRARIES})
+target_link_libraries(RoNAOldo_ballVision ${Eigen_LIBRARIES})
+target_link_libraries(RoNAOldo_relative_position ${Eigen_LIBRARIES})
 target_link_libraries(RoNAOldo_control ${Eigen_LIBRARIES})
 target_link_libraries(RoNAOldo_dummyVision ${Eigen_LIBRARIES})
 
 find_package(Boost REQUIRED COMPONENTS system thread)
 include_directories(${Boost_INCLUDE_DIRS})
-target_link_libraries(RoNAOldo_vision ${Boost_LIBRARIES})
+target_link_libraries(RoNAOldo_ballVision ${Boost_LIBRARIES})
 target_link_libraries(RoNAOldo_dummyVision ${Boost_LIBRARIES})
 target_link_libraries(RoNAOldo_control ${Boost_LIBRARIES})
 
 find_package(OpenCV REQUIRED)
-target_link_libraries(RoNAOldo_vision ${OpenCV_LIBS})
+target_link_libraries(RoNAOldo_ballVision ${OpenCV_LIBS})
 target_link_libraries(RoNAOldo_dummyVision ${OpenCV_LIBS})
 target_link_libraries(RoNAOldo_control ${OpenCV_LIBS})
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} /usr/local/lib/cmake)
 
 find_package(aruco REQUIRED)
-target_link_libraries(RoNAOldo_vision  ${aruco_LIBS})
+target_link_libraries(RoNAOldo_ballVision  ${aruco_LIBS})
 target_link_libraries(RoNAOldo_dummyVision  ${aruco_LIBS})
 target_link_libraries(RoNAOldo_vision_marker  ${aruco_LIBS})
 target_link_libraries(RoNAOldo_control  ${aruco_LIBS})

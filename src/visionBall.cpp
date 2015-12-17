@@ -333,12 +333,18 @@ public:
       const Scalar rect_color = Scalar(0,255,0);
       rectangle(image_keypoints, color_camshift_region_of_interest,rect_color,5);
 
-
+      ball_detected = false;
+      double rect_center_x = 0;
+      double rect_center_y = 0;
+      double ball_distance = 0;
+      //focal length of top camera
+      double f2 = 553.736023;
       //if camshift detected a "ball"
       if(color_camshift_region_of_interest.area() > 1.0) {
         //check if blob detection also got one
         double rect_center_x = color_camshift_region_of_interest.x + (color_camshift_region_of_interest.width/2);
         double rect_center_y = color_camshift_region_of_interest.y + (color_camshift_region_of_interest.height/2);
+        ball_distance = f2 * (70.00/ (0.5*(color_camshift_region_of_interest.height + color_camshift_region_of_interest.width)));
 
         // extract the x y coordinates of the keypoints:
         for (int i=0; i<keypoints.size(); i++){
@@ -356,6 +362,20 @@ public:
       //draw keypoints
       //drawKeypoints(image_dilate, keypoints, image_keypoints);
       imshow("Blob Extraction", image_keypoints);
+
+
+      try {
+        if(ball_detected) {
+          RoNAOldo::ballMsg ballMsg;
+
+          ballMsg.ball_distance = ball_distance;
+          ballMsg.ball_center_x = rect_center_x;
+
+          ballCenterPub.publish(ballMsg);
+        }
+      } catch (...) {
+          ROS_ERROR("cannot publish ball position");
+      }
 
 
       //result: HoughCircles dont work
@@ -397,8 +417,6 @@ public:
 
       //try to detect ball using blop and color Detection
       detectBallUsingColorBlob(image);
-
-
 
 
 
@@ -445,6 +463,8 @@ public:
           ROS_ERROR("cant get the distance to the ball");
       }
 
+      /*
+      publishh it from other functio now
       try {
         if(ball_detected) {
           RoNAOldo::ballMsg ballMsg;
@@ -456,7 +476,7 @@ public:
         }
       } catch (...) {
           ROS_ERROR("cannot publish ball position");
-      }
+      }*/
 
     }
 };
