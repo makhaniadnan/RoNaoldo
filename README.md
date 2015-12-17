@@ -1,4 +1,14 @@
-# NAO Robot Soccer 
+# NAO Robot Soccer
+
+
+# Vision
+
+In order to start the marker detector, ball detector and relative position publisher, run:
+```
+#how to run all of vision?
+roslaunch RoNAOldo vision.launch
+```
+
 
 
 ## Vision Marker
@@ -6,7 +16,7 @@
 The file vision-marker.cpp is subsribing to two topics:
 
 * ballposition
-* image 
+* image
 
 It then tries to find two aruco markers in the image. If it finds exactly two, it will calculate the horizontal center of them. Then, it will calculate if the ball center is left or right of the horizontal center of the two markers. It will publish the distance to the center under a new topic called `ballOffMiddle`.
 
