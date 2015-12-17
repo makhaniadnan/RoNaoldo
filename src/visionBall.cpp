@@ -228,7 +228,7 @@ public:
       while(nh_.ok())
       {
 
-        top_sub = it.subscribe("nao/nao_robot/camera/top/camera/image_raw", 1, &Vision::detect_Ball, this);
+        top_sub = it.subscribe("image", 1, &Vision::detect_Ball, this);
 
         rate_sleep.sleep();
       }
@@ -370,6 +370,7 @@ public:
 
           ballMsg.ball_distance = ball_distance;
           ballMsg.ball_center_x = rect_center_x;
+          ballMsg.image_width = image.cols;
 
           ballCenterPub.publish(ballMsg);
         }

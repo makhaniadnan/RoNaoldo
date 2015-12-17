@@ -1,0 +1,6 @@
+<launch>
+    <node name="relative_position" pkg="RoNAOldo" type="RoNAOldo_relative_position" output="screen">
+        <remap from="goalPositionTop" to="/goalPosition" />
+        <remap from="ballTop" to="/ball" />
+    </node>
+</launch>

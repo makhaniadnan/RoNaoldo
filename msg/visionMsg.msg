@@ -1,3 +1,6 @@
 float64 ball_distance
 float64 ball_rel_goal
 float64 ball_rel_image
+bool ball_detected_in_lastsec
+bool left_marker_detected_in_lastsec
+bool right_marker_detected_in_lastsec

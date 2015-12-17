@@ -1,2 +1,3 @@
 float64 ball_distance
 float64 ball_center_x
+float64 image_width
