@@ -153,61 +153,7 @@ public:
     camMatrix = (Mat_<float>(3,3) << f1, alphaf1, c1, 0.0, f2, c2, 0.0, 0.0, 1.0);
 
 
-    // read image and extract area of interest from template img
-    try
-    {
-        //TODO: change to parameter or something!
-        image_template = imread("/home/hrs2015/catkin_ws_team2/src/RoNaoldo/images/mor_temp.jpg");
-        //image_template = imread("/home/hrs2015/catkin_ws/src/RoNaoldo/images/nit_temp.jpg");
 
-
-        if( image_template.empty() )  // Check for invalid input
-        {
-            cout << "Could not open or find the image" << endl ;
-        }
-        region_of_interest = Rect(229,325,92,92);  // for mor_temp
-        //region_of_interest = Rect(269,269,163,163);  // for nit_temp
-
-        image_ROI = image_template(region_of_interest);
-        imshow("ROI", image_ROI);
-        waitKey(30);
-    }
-    catch (cv_bridge::Exception& e) {
-        ROS_ERROR("Couldn't extract ROI");
-    }
-    // Convert to HSV ROI :
-    try {
-        cvtColor(image_ROI,image_ROI_hsv,CV_BGR2HSV);
-        split(image_ROI_hsv,v_channel);
-        threshold(v_channel[1], mask, 70, 255, THRESH_BINARY);
-        calcHist(&image_ROI_hsv,1,chnls,mask,hist, 1,hsize, ranges); //calculate histogram
-	      normalize(hist, hist, 0, 255, NORM_MINMAX, -1, Mat() ); // normalize histogram
-
-        //below commented code is for printing histogram
-	      int rows = 64;
-        //default height size
-        int cols = hist.rows;
-        //get the width size from the histogram
-        float scaleX = 3;
-        float scaleY = 3;
-        Mat histImg = Mat::zeros(rows*scaleX, cols*scaleY, CV_8UC3);
-
-        for(int i=0; i<cols-1; i++) {
-            float histValue = hist.at<float>(i,0);
-            float nextValue = hist.at<float>(i+1,0);
-            Point pt1 = Point(i*scaleX, rows*scaleY);
-            Point pt2 = Point(i*scaleX+scaleX, rows*scaleY);
-            Point pt3 = Point(i*scaleX+scaleX, (rows-nextValue*rows/255)*scaleY);
-            Point pt4 = Point(i*scaleX, (rows-nextValue*rows/255)*scaleY);
-            int numPts = 5;
-            Point pts[] = {pt1, pt2, pt3, pt4, pt1};
-            fillConvexPoly(histImg, pts, numPts, Scalar(255,255,255));
-        }
-        imshow("hist", histImg);
-    }
-    catch (...) {
-        ROS_ERROR("Error in computing histogram!");
-    }
 
 
     stop_thread=false;

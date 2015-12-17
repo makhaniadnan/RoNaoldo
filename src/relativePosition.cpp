@@ -119,8 +119,10 @@ public:
 			//offset = ball - center of goal
 			//then offset scaled by half of the goal distance
 			//ball_rel_goal = offset /( 0.5* (M2 - M1) )
-			msg.ball_rel_goal = (2.0*last_ball_msg.ball_center_x -
-							last_goal_msg.marker1_center_x + last_goal_msg.marker2_center_x)
+			//final formula is =((2*B)-(M1+M2))/(M2-M1)
+			float offset =
+			msg.ball_rel_goal = ((2.0*last_ball_msg.ball_center_x) -
+							(last_goal_msg.marker1_center_x + last_goal_msg.marker2_center_x))
 							/ (last_goal_msg.marker2_center_x - last_goal_msg.marker1_center_x);
 
 			//take ball center
