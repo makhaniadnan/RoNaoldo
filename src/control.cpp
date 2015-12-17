@@ -349,20 +349,7 @@ public:
         cout << "\033[1;33mPerforming Kick Control:\033[0m" << endl;
       }
 
-      // TODO
-      // 1. Stay on one foot
-      // 2. Perfrom Kick
-      //walker(0, 0.05, 0);
-      //walker(0.2, 0, 0);
-
-      // Bring head into default position:
-      //sensor_msgs::JointState adjustHead;
-      //adjustHead.name.push_back("LWristYaw");
-      //adjustHead.name.push_back("HeadPitch");
-      //adjustHead.position.push_back(0.0);
-      //adjustHead.position.push_back(0.3);
-      //mooveJoints(adjustHead);
-
+      // Lean zo left:
       sensor_msgs::JointState oneFoot1;
       oneFoot1.name.push_back("LKneePitch");
       oneFoot1.name.push_back("LAnklePitch");
@@ -378,6 +365,7 @@ public:
 
       sleep(3);
 
+      // stand on one foot:
       sensor_msgs::JointState oneFoot2;
       oneFoot2.name.push_back("RKneePitch");
       oneFoot2.name.push_back("RAnklePitch");
@@ -387,6 +375,7 @@ public:
 
       sleep(3);
 
+      // kick:
       sensor_msgs::JointState oneFoot3;
       oneFoot3.name.empty();
       oneFoot3.position.empty();
@@ -395,6 +384,46 @@ public:
       oneFoot3.position.push_back(-0.5);
       oneFoot3.position.push_back(0.4);
       mooveJoints(oneFoot3, 0.8, 1);
+
+      sleep(3);
+
+      // retract foot:
+      sensor_msgs::JointState oneFoot4;
+      oneFoot4.name.empty();
+      oneFoot4.position.empty();
+      oneFoot4.name.push_back("RHipPitch");
+      oneFoot4.name.push_back("RAnklePitch");
+      oneFoot4.position.push_back(0.5);
+      oneFoot4.position.push_back(-0.4);
+      mooveJoints(oneFoot4, 0.2, 1);
+
+      sleep(3);
+
+      // stand on both foot:
+      sensor_msgs::JointState oneFoot5;
+      oneFoot5.name.push_back("RKneePitch");
+      oneFoot5.name.push_back("RAnklePitch");
+      oneFoot5.position.push_back(-0.4);
+      oneFoot5.position.push_back(0.4);
+      mooveJoints(oneFoot5, 0.05, 1);
+
+      sleep(3);
+
+      // Lean back to neutral position:
+      sensor_msgs::JointState oneFoot6;
+      oneFoot6.name.push_back("LKneePitch");
+      oneFoot6.name.push_back("LAnklePitch");
+      oneFoot6.name.push_back("RKneePitch");
+      oneFoot6.name.push_back("RAnklePitch");
+      oneFoot6.name.push_back("LAnkleRoll");
+      oneFoot6.position.push_back(-0.2);
+      oneFoot6.position.push_back(0.1);
+      oneFoot6.position.push_back(0.2);
+      oneFoot6.position.push_back(-0.2);
+      oneFoot6.position.push_back(-0.2);
+      mooveJoints(oneFoot6, 0.05, 1);
+
+      sleep(3);
 
       // reuturn to walking!
 
