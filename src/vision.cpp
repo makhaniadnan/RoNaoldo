@@ -96,16 +96,8 @@ public:
     // Image transporter
     image_transport::ImageTransport it;
 
-    //Camera parameters for aruco marker detection
-    aruco::CameraParameters cameraParameters;
-
-    // Initialize Marker Class:
-   aruco::MarkerDetector MDetector;
-   vector<aruco::Marker> Markers;
-
     // Images and other variables required for template matching:
     Mat image;
-    Mat image_goal;
     Mat image_hsv;
     Mat image_undist;
     Mat image_ball;
@@ -138,6 +130,7 @@ public:
 		visionSub = nh_.subscribe("controlMessage", 10, &Vision::controlMessageCallback, this);
 
 		visionPub = nh_.advertise<RoNAOldo::visionMsg>("visionMessage", 10);
+    visionPub = nh_.advertise<RoNAOldo::visionMsg>("ball", 10);
 
 		count = 0;
 
@@ -159,8 +152,6 @@ public:
     dist = (Mat_<float>(1,5) << k1, k2, k3, k4, k5);
     camMatrix = (Mat_<float>(3,3) << f1, alphaf1, c1, 0.0, f2, c2, 0.0, 0.0, 1.0);
 
-    cameraParameters.setParams(camMatrix, dist, cv::Size(640,480));
-	  cameraParameters.resize(cv::Size(640,480));
 
     // read image and extract area of interest from template img
     try
@@ -236,13 +227,13 @@ public:
       while(nh_.ok())
       {
 
-        top_sub = it.subscribe("nao/nao_robot/camera/top/camera/image_raw", 1, &Vision::detect_Ball_Goal, this);
+        top_sub = it.subscribe("nao/nao_robot/camera/top/camera/image_raw", 1, &Vision::detect_Ball, this);
 
         rate_sleep.sleep();
       }
 
     }
-    void detect_Ball_Goal(const sensor_msgs::ImageConstPtr& msg)
+    void detect_Ball(const sensor_msgs::ImageConstPtr& msg)
     {
       // Convert to bgr8 and display:
       try
@@ -258,7 +249,6 @@ public:
       try {
           ball_detected = false;
           image_ball = image.clone();
-          image_goal = image.clone();
           cvtColor(image,image_hsv,CV_BGR2HSV);
           split(image_hsv,image_channel);
           threshold(image_channel[1], image_mask, 70, 255, THRESH_BINARY);
@@ -273,7 +263,7 @@ public:
                 { ball_detected = true; }
             }
 
-          
+
           imshow("Tracking", image_ball);
           waitKey(30);
       }
@@ -282,43 +272,7 @@ public:
       }
 
       // Detect Markers
-      try {
 
-
-
-      // Detect Marker:
-      // size of marker
-      float markerSize = 0.135; //13.5mm
-      MDetector.detect(image, Markers, cameraParameters, markerSize);
-
-      // Draw  Marker Info:
-      double pos3d[3];
-      double orient3d[4];
-      for (unsigned int i=0;i<Markers.size();i++) {
-      //cout<<Markers[i]<<endl;
-      //ROS_INFO("Found Marker %d", Markers[i].id);
-        Markers[i].draw(image_goal, cv::Scalar(0,0,255),2);
-
-       // Get 3D position and print it:
-        Markers[i].OgreGetPoseParameters(pos3d, orient3d);
-       //  ROS_INFO("Marker's 3D position: X: %f - Y: %f - Z: %f", pos3d[0], pos3d[1], pos3d[2]);
-        cv::Point2f markerCenter;
-        markerCenter = Markers[i].getCenter();
-
-        //ROS_INFO("Marker's center is X: %f - Y: %f",markerCenter.x,markerCenter.y);
-
-        }
-       // Show image:
-         imshow("goal", image_goal);
-           //wait 30ms
-         cv::waitKey(30);
-
-
-
-      }
-      catch (...) {
-          ROS_ERROR("Cant Detect Markers");
-      }
 
       // Prepare message for control
       try {
@@ -332,37 +286,9 @@ public:
         }
 
 
-        //check if we found both markers
-		   if(Markers.size() == 2 && ball_detected) {
-			 //calculate middle of the two markers
-
-         float goal_distance_half = (Markers[1].getCenter().x - Markers[0].getCenter().x) / 2.0;
-         float goal_middle = Markers[0].getCenter().x + 0.5 * (Markers[1].getCenter().x - Markers[0].getCenter().x);
 
 
-			  //draw middle line
-			  //cv::line(image_goal, cv::Point2f(horizontalMiddle,0.0), cv::Point2f(horizontalMiddle,480.0), cv::Scalar(255,0,0));
-
-			  //ball position w.r.t gaol scale
-         if(region_of_interest.width > 0 && region_of_interest.height > 0 )
-           {
-              float ball_centre_x = region_of_interest.x + (region_of_interest.width/2);
-       		    ball_pos_goal = ((ball_centre_x - Markers[0].getCenter().x) / goal_distance_half) - 1;
-              ball_pos_img =  (ball_centre_x  / (image.cols/2.0)) - 1;
-           }
-
-			  //publish our message
-        v_msg.ball_distance = distance / 1000.0;
-        v_msg.ball_rel_goal = ball_pos_goal;
-        v_msg.ball_rel_image = ball_pos_img;
-        visionPub.publish(v_msg);
-		   }
-
-
-
-
-      }
-      catch (...) {
+      } catch (...) {
           ROS_ERROR("cant get the distance to the ball");
       }
 

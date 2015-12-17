@@ -20,6 +20,7 @@ add_message_files(
   FILES
   visionMsg.msg
   controlMsg.msg
+  goalPosition.msg
 )
 
 generate_messages(
@@ -75,4 +76,3 @@ target_link_libraries(RoNAOldo_vision  ${aruco_LIBS})
 target_link_libraries(RoNAOldo_dummyVision  ${aruco_LIBS})
 target_link_libraries(RoNAOldo_vision_marker  ${aruco_LIBS})
 target_link_libraries(RoNAOldo_control  ${aruco_LIBS})
-

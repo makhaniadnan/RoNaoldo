@@ -9,8 +9,7 @@
 #include <aruco/cvdrawingutils.h>
 
 //include custom messages
-#include "RoNAOldo/controlMsg.h"
-#include <std_msgs/Float32.h>
+#include "RoNAOldo/goalPosition.h"
 
 namespace vision {
 class Marker {
@@ -22,11 +21,11 @@ public:
 
 	ros::NodeHandle _nh;
 
-	ros::Publisher publisherOffMiddle;
+	ros::Publisher goalPublisher;
 
 	image_transport::Subscriber subscriberImage;
 
-	ros::Subscriber subscriberBallPosition;   	
+	ros::Subscriber subscriberBallPosition;
 
 	Marker(ros::NodeHandle n)
 	{
@@ -34,7 +33,7 @@ public:
 
 
 		//publish ballOffMiddle
-		publisherOffMiddle = _nh.advertise<std_msgs::Float32>("ball/offMiddle", 10);
+		goalPublisher = _nh.advertise<RoNAOldo::goalPosition>("goalPosition", 10);
 
 		 initCameraParameters();
 
@@ -43,8 +42,6 @@ public:
 		 image_transport::ImageTransport it(_nh);
 		 subscriberImage = it.subscribe("image", 1, &Marker::markerImageCallback, this);
 
-		 //subscribe to ball position
-		 subscriberBallPosition = _nh.subscribe("ball/imagePosition", 1, &Marker::ballPositionCallback, this);
 
 		ROS_INFO("init Marker done");
 	}
@@ -79,25 +76,12 @@ public:
 	  cameraParameters.setParams(camMatrix, dist, cv::Size(640,480));
 	  cameraParameters.resize(cv::Size(640,480));
 
-	  //TODO get from callback
-	  lastBallCenter.x = 233.0;
-	  lastBallCenter.y = 5.0;
-	}
-
-	void ballPositionCallback(const RoNAOldo::controlMsg::ConstPtr &inMessage)
-	{
-		ROS_INFO("updatated ball position");
-		cout << inMessage->targetReached << endl;
-
-		lastBallCenter.x = inMessage->ballPositionX;
-		lastBallCenter.y = inMessage->ballPositionY;
-		ROS_INFO("ball position now is X: %f - Y: %f", lastBallCenter.x, lastBallCenter.y);
 	}
 
 	void markerImageCallback(const sensor_msgs::ImageConstPtr& msg)
 	{
 
-		ROS_INFO("got image callback");	
+		ROS_INFO("got image callback");
 
 
 	  // Images:
@@ -123,6 +107,10 @@ public:
 
 	    // Detect Marker:
 		// size of marker
+
+		//publish our message
+		RoNAOldo::goalPosition msg;
+
 		float markerSize = 0.135; //13.5mm
 	    MDetector.detect(image, Markers, cameraParameters, markerSize);
 
@@ -135,76 +123,40 @@ public:
 	      ROS_INFO("Found Marker %d", Markers[i].id);
 
 	      Markers[i].draw(image_marker, cv::Scalar(0,0,255),2);
-	    
+
 	      // Get 3D position and print it:
 	      Markers[i].OgreGetPoseParameters(pos3d, orient3d);
 	      ROS_INFO("Marker's 3D position: X: %f - Y: %f - Z: %f", pos3d[0], pos3d[1], pos3d[2]);
-		  
-		  cv::Point2f markerCenter;
-		  markerCenter = Markers[i].getCenter();
 
-		  ROS_INFO("Marker's center is X: %f - Y: %f",markerCenter.x,markerCenter.y);
+			  cv::Point2f markerCenter;
+			  markerCenter = Markers[i].getCenter();
 
+			  ROS_INFO("Marker's center is X: %f - Y: %f",markerCenter.x,markerCenter.y);
+
+				if(Markers[i].id==1) {
+					msg.marker1_center_x = markerCenter.x;
+					msg.marker1_center_y = markerCenter.y;
+				}
+				if(Markers[i].id==2) {
+					msg.marker2_center_x = markerCenter.x;
+					msg.marker2_center_y = markerCenter.y;
+				}
 	    }
 
-		//coordinate system of opencv is as follows:
-		//top left corner here
-		//(tl) --- x --->
-		// |
-		// |
-		// y
-		// |
-		// \/
-
-		//draw ball marker
-		cv::circle(image_marker, lastBallCenter, 30, cv::Scalar(0,255,0), 3);
-
-
-
-		//check if we found both markers
-		if(Markers.size() == 2) {
-			//calculate middle of the two markers
-
-			float horizontalMiddle = Markers[0].getCenter().x + 0.5 * (Markers[1].getCenter().x - \
-					Markers[0].getCenter().x);
-
-			ROS_INFO("Middle (x) of two markers is %f", horizontalMiddle);
-
-			//draw middle line
-			cv::line(image_marker, cv::Point2f(horizontalMiddle,0.0), cv::Point2f(horizontalMiddle,480.0), cv::Scalar(255,0,0));
-
-			//is ball left or right from middle?
-
-			float ballOffMiddle = lastBallCenter.x - horizontalMiddle;
-
-			if(ballOffMiddle >= 0) {
-				ROS_INFO("Ball is RIGHT of middle (or in the middle): %f pixels", ballOffMiddle);
-			} else {
-				ROS_INFO("Ball is LEFT of middle: %f pixels", -ballOffMiddle);
+			msg.marker_count = Markers.size();
+			if(msg.marker_count > 0) {
+				goalPublisher.publish(msg);
 			}
 
-
-			//publish our message
-			std_msgs::Float32 msg;
-			msg.data = ballOffMiddle;
-
-			publisherOffMiddle.publish(msg);
-		}
-
-	    // Show image:
-		cv::imshow("3D marker position", image_marker);
+			// Show image:
+	 cv::imshow("3D marker position", image_marker);
 		//wait 30ms
-	    cv::waitKey(30);
+			cv::waitKey(30);
 
-		//if at least one marker was found
-		if(Markers.size() > 0) {
-			// wait until key pressed
-			cv::waitKey(0);
-		}
-	  }
-	  catch (...) {
+		} catch (...) {
 	    ROS_ERROR("Error in Marker Detection!");
 	  }
+
 
 	}
 

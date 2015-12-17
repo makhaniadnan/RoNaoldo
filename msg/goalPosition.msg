@@ -1,0 +1,5 @@
+float64 marker1_center_x
+float64 marker1_center_y
+float64 marker2_center_x
+float64 marker2_center_y
+int64 marker_count
