@@ -114,8 +114,20 @@ public:
 		)	{
 			float goal_distance_half = (last_goal_msg.marker1_center_x - last_goal_msg.marker2_center_x) / 2.0;
 
+			//olny x values
+			//take center of goal = (M2 + M1)*0.5
+			//offset = ball - center of goal
+			//then offset scaled by half of the goal distance
+			//ball_rel_goal = offset /( 0.5* (M2 - M1) )
+			msg.ball_rel_goal = (2.0*last_ball_msg.ball_center_x -
+							last_goal_msg.marker1_center_x + last_goal_msg.marker2_center_x)
+							/ (last_goal_msg.marker2_center_x - last_goal_msg.marker1_center_x);
 
-			msg.ball_rel_goal  = ((last_ball_msg.ball_center_x - last_goal_msg.marker1_center_x) / goal_distance_half) - 1.0;
+			//take ball center
+			//offset = image center - ball
+			//scale offest from -1 for left image side to +1 for right image side
+			//msg.ball_rel_image = (last_ball_msg.ball_center_x - (last_ball_msg.image_width*0.5)) / (last_ball_msg.image_width*0.5)
+			//easier calculatoin version (but same as above)
 			msg.ball_rel_image  =  (1.0*last_ball_msg.ball_center_x  / (last_ball_msg.image_width/2.0)) - 1.0;
 			cout << "last ball center" << last_ball_msg << endl;
 			cout << "last goal" << last_goal_msg << endl;
