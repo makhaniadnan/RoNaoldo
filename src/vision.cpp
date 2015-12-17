@@ -245,22 +245,13 @@ public:
       try {
         cvtColor(image,image_hsv,CV_BGR2HSV);
 
-        Scalar redMin = Scalar(0*180,0.4*255,0.9*255);
+        Scalar redMin = Scalar(0*180,0.4*255,0.8*255);
         Scalar redMax = Scalar(30.0/360.0*180,1*255,1*255);
 
-
-        cout << "redMin" << redMin << endl;
-        cout << "redMax" << redMax << endl;
         inRange(image_hsv, redMin, redMax, image_color);
         imshow("Colour extraction", image_color);
 
-        // Dilate and/or Erode:
-        int erosion_size = 5;
-        Mat element = getStructuringElement( MORPH_ELLIPSE,
-                                         Size( 2*erosion_size + 1, 2*erosion_size+1 ),
-                                         Point( erosion_size, erosion_size ) );
-        dilate(image_color, image_dilate, element);
-        erode( image_dilate, image_dilate, element );
+
         //imshow("Blob Extraction", image_dilate);
         waitKey(30);
       }
@@ -271,6 +262,20 @@ public:
       // Blob Extraction:
       Mat image_keypoints;
       try{
+        Scalar redMin2 = Scalar(0*180,0.2*255,0.8*255);
+        Scalar redMax2 = Scalar(30.0/360.0*180,1*255,1*255);
+
+        Mat image_hsv_blob;
+        inRange(image_hsv, redMin2, redMax2, image_hsv_blob);
+        imshow("HSV blob extraction", image_hsv_blob);
+
+        // Dilate and/or Erode:
+        int erosion_size = 5;
+        Mat element = getStructuringElement( MORPH_ELLIPSE,
+                                         Size( 2*erosion_size + 1, 2*erosion_size+1 ),
+                                         Point( erosion_size, erosion_size ) );
+        dilate(image_hsv_blob, image_dilate, element);
+        erode( image_dilate, image_dilate, element );
 
         // Initialize Blob detector class:
         SimpleBlobDetector::Params params;
@@ -278,10 +283,16 @@ public:
         params.filterByInertia = false;
         params.filterByConvexity = false;
         params.filterByColor = false;
-        params.filterByCircularity = false;
+        params.filterByCircularity = true;
         params.filterByArea = true;
         params.minArea = 500.0f;
         params.maxArea = 2000.0f;
+        params.minCircularity = 0.5f;
+        params.maxCircularity = 1.0f;
+        params.minConvexity = 0.5;
+        params.maxConvexity = 1.0;
+        params.minInertiaRatio = 0.4;
+        params.maxInertiaRatio = 1.0;
         SimpleBlobDetector blob_detector(params);
 
         // detect the blobs keypoints (center of mass):
@@ -326,6 +337,28 @@ public:
       //draw keypoints
       //drawKeypoints(image_dilate, keypoints, image_keypoints);
       imshow("Blob Extraction", image_keypoints);
+
+
+      //result: HoughCircles dont work
+      /*
+      //try to use houghcircles here
+      vector<Vec3f> circles;
+
+      /// Apply the Hough Transform to find the circles
+      HoughCircles( image_color, circles, CV_HOUGH_GRADIENT, 1, image_color.rows/8, 200, 100, 0, 0 );
+
+      /// Draw the circles detected
+      for( size_t i = 0; i < circles.size(); i++ )
+      {
+          Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
+          int radius = cvRound(circles[i][2]);
+          // circle center
+          circle( image_keypoints, center, 3, Scalar(255,0,0), -1, 8, 0 );
+          // circle outline
+          circle( image_keypoints, center, radius, Scalar(255,0,0), 3, 8, 0 );
+          ROS_INFO("deteced houghcircle");
+       }
+       */
 
 
     }
@@ -422,6 +455,8 @@ int main(int argc, char** argv)
     namedWindow("goal");
     namedWindow("Colour extraction");
     namedWindow("Blob Extraction");
+    namedWindow("HSV blob extraction");
+
 
 
     startWindowThread();
