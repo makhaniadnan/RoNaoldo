@@ -103,9 +103,9 @@ public:
 
   		nh_ = n;
 
-  		visionSub = nh_.subscribe("controlMessage", 10, &Vision::controlMessageCallback, this);
+  		visionSub = nh_.subscribe("controlMessage", 1, &Vision::controlMessageCallback, this);
 
-  		visionPub = nh_.advertise<RoNAOldo::visionMsg>("visionMessage", 10);
+  		visionPub = nh_.advertise<RoNAOldo::visionMsg>("relative_position", 1);
 
     }
 
@@ -133,6 +133,9 @@ public:
         cout << "Enter ball position relative to image: ";
         cin >> msg.ball_rel_image;
         cout << "\033[1;33m-------------------------------------------------------\033[0m\n";
+        msg.ball_detected_in_lastsec = true;
+        msg.left_marker_detected_in_lastsec = true;
+        msg.right_marker_detected_in_lastsec = true;
 
         // Send Dummy Message:
         visionPub.publish(msg);

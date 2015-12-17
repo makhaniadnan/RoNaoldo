@@ -124,7 +124,6 @@ public:
     ros::Subscriber jointStatesSub;
     ros::Subscriber jointActionStatusSub;
     ros::Publisher jointCommandPub;
-    float JOINT_SPEED = 0.05;
     int JOINT_ACTION_STATUS = 0;
 
     Control(NodeHandle n) {
@@ -357,14 +356,41 @@ public:
       //walker(0.2, 0, 0);
 
       // Bring head into default position:
-      spinOnce();
-      sensor_msgs::JointState adjustHead;
-      adjustHead.name.push_back("LWristYaw");
+      //spinOnce();
+      //sensor_msgs::JointState adjustHead;
+      //adjustHead.name.push_back("LWristYaw");
       //adjustHead.name.push_back("HeadPitch");
-      adjustHead.position.push_back(0.0);
+      //adjustHead.position.push_back(0.0);
       //adjustHead.position.push_back(0.3);
-      mooveJoints(adjustHead);
-      spinOnce();
+      //mooveJoints(adjustHead);
+      //spinOnce();
+
+      sensor_msgs::JointState oneFoot1;
+      sensor_msgs::JointState oneFoot2;
+
+      oneFoot2.name.push_back("RKneePitch");
+      oneFoot2.name.push_back("RAnklePitch");
+      oneFoot2.name.push_back("LKneePitch");
+      oneFoot2.name.push_back("LAnklePitch");
+      oneFoot2.position.push_back(-0.3);
+      oneFoot2.position.push_back(0.3);
+      oneFoot2.position.push_back(0.3);
+      oneFoot2.position.push_back(-0.3);
+      mooveJoints(oneFoot2, 0.05, 1);
+
+      /*
+      oneFoot1.name.push_back("LHipRoll");
+      oneFoot1.position.push_back(0.5);
+      mooveJoints(oneFoot1, 0.05, 1);
+
+      oneFoot1.name.at(0) = "LAnkleRoll";
+      oneFoot1.position.at(0) = 0.7;
+      mooveJoints(oneFoot1, 0.05, 1);
+
+      oneFoot1.name.at(0) = "RAnklePitch";
+      oneFoot1.position.at(0) = -0.8;
+      mooveJoints(oneFoot1, 0.05, 1);
+      */
 
     }
 
@@ -401,7 +427,7 @@ public:
 
       if (inMessage->ball_detected_in_lastsec && inMessage->left_marker_detected_in_lastsec && inMessage->right_marker_detected_in_lastsec) {
         BALL_REL_TO_GOAL = inMessage->ball_rel_goal;
-        BALL_DIST = inMessage->ball_distance / 1000.0;
+        BALL_DIST = inMessage->ball_distance;
         BALL_REL_TO_IMAGE = inMessage->ball_rel_image;
 
         DATA_IS_NEW = true;
@@ -467,14 +493,14 @@ public:
 
     }
 
-    void mooveJoints(sensor_msgs::JointState joints) {
+    void mooveJoints(sensor_msgs::JointState joints, float speed, int relative) {
 
       naoqi_bridge_msgs::JointAnglesWithSpeedActionGoal action_execute;
 			stringstream ss;
 			ss << ros::Time::now().sec;
 			action_execute.goal_id.id = "move_" + ss.str();
-			action_execute.goal.joint_angles.speed = JOINT_SPEED;
-			action_execute.goal.joint_angles.relative = 0;
+			action_execute.goal.joint_angles.speed = speed;
+			action_execute.goal.joint_angles.relative = relative;
 			action_execute.goal.joint_angles.joint_names = joints.name;
       for (int i = 0; i < joints.position.size(); i++) {
         action_execute.goal.joint_angles.joint_angles.push_back((float)joints.position.at(i));
