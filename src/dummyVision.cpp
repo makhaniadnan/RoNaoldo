@@ -125,17 +125,39 @@ public:
       {
 
         // Create Dummy Message:
+        int temp;
         RoNAOldo::visionMsg msg;
-        cout << "Enter Distance to Ball [m]: ";
+        cout << "BALL_DST: ";
         cin >> msg.ball_distance;
-        cout << "Enter ball position relative to goal: ";
+        cout << "BALL_REL_TO_GOAL: ";
         cin >> msg.ball_rel_goal;
-        cout << "Enter ball position relative to image: ";
+        cout << "BALL_REL_TO_IMAGE: ";
         cin >> msg.ball_rel_image;
+        cout << "BALL_VISIBLE: ";
+        cin >> temp;
+        if (temp == 0) {
+          msg.ball_detected_in_lastsec = false;
+        }
+        else {
+          msg.ball_detected_in_lastsec = true;
+        }
+        cout << "LEFT_POST_VISIBLE: ";
+        cin >> temp;
+        if (temp == 0) {
+          msg.left_marker_detected_in_lastsec = false;
+        }
+        else {
+          msg.left_marker_detected_in_lastsec = true;
+        }
+        cout << "RIGHT_POST_VISIBLE: ";
+        cin >> temp;
+        if (temp == 0) {
+          msg.right_marker_detected_in_lastsec = false;
+        }
+        else {
+          msg.right_marker_detected_in_lastsec = true;
+        }
         cout << "\033[1;33m-------------------------------------------------------\033[0m\n";
-        msg.ball_detected_in_lastsec = true;
-        msg.left_marker_detected_in_lastsec = true;
-        msg.right_marker_detected_in_lastsec = true;
 
         // Send Dummy Message:
         visionPub.publish(msg);

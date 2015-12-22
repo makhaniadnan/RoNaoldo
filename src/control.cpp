@@ -17,6 +17,7 @@
 #include <iostream>
 #include <fstream>
 #include <iomanip>
+#include <unistd.h>
 #include <stdlib.h>
 #include <ros/ros.h>
 #include <sensor_msgs/image_encodings.h>
@@ -55,6 +56,22 @@ using namespace cv;
 using namespace std;
 using namespace ros;
 
+// State Machine:
+#define STATE_INIT                0
+#define STATE_BALL_SEARCH         1
+#define STATE_LEFT_FOUND          2
+#define STATE_RIGHT_FOUND         3
+#define STATE_STEP_BACK_LEFT      4
+#define STATE_STEP_BACK_RIGHT     5
+#define STATE_CONTROL             6
+#define STATE_GOAL_SEARCH         7
+#define STATE_ERROR               9
+
+// Extended bools:
+#define F     0 // TRUE
+#define T     1 // FALSE
+#define X     2 // DONT CARE
+
 // Thread for spinning:
 bool stop_thread=false;
 
@@ -92,12 +109,20 @@ public:
 
     // DEBUG MODE:
     bool DEBUG = true;
+    int iterCount = 0;
+
+    // State Machine:
+    int STATE = STATE_INIT;
+    bool TRANS[3] = {false};
 
     // Vision Info:
-    float BALL_REL_TO_GOAL;
-    float BALL_DIST;
+    float BALL_REL_TO_GOAL = 0;
+    float BALL_DIST = 0;
     bool DATA_IS_NEW = false;
     float BALL_REL_TO_IMAGE = 0;
+    bool BALL_VISIBLE = false;
+    bool LEFT_POST_VISIBLE = false;
+    bool RIGHT_POST_VISIBLE = false;
 
     // Control Paramers (ORIENTATION CONTROLLER):
     bool ORIENTATION_OK   = false;
@@ -158,91 +183,180 @@ public:
 
         if (DATA_IS_NEW == true) {
 
+        // Count Iteration:
+        iterCount++;
+
           if (DEBUG == true) {
             cout << "-------------------------------------------------------" << endl;
-            cout << "\033[1;31mNew Control Iteration:\033[0m" << endl;
+            cout << "\033[1;34mNew Iteration:\033[0m #" << setw(10) << iterCount << endl;
+            cout << endl;
+            cout << "\033[1;34mCurent State:\033[0m " << stateToString(STATE) << endl;
+            cout << "\033[1;36mCurrent Values:\033[0m" << endl;
             cout << "    \033[3mBALL_DST            \033[0m : " << setw(10) << BALL_DIST << endl;
             cout << "    \033[3mBALL_REL_TO_GOAL    \033[0m : " << setw(10) << BALL_REL_TO_GOAL << endl;
             cout << "    \033[3mBALL_REL_TO_IMAGE   \033[0m : " << setw(10) << BALL_REL_TO_IMAGE << endl;
-            cout << "    \033[3mORIENTATION_OK      \033[0m : " << setw(10) << ORIENTATION_OK << endl;
-            cout << "    \033[3mAPPROACH_OK         \033[0m : " << setw(10) << APPROACH_OK << endl;
+            cout << "\033[1;36mCurrent Logic Values:\033[0m" << endl;
+            cout << "    \033[3mBALL_VISIBLE        \033[0m : " << setw(10) << boolToString(BALL_VISIBLE) << endl;
+            cout << "    \033[3mLEFT_POST_VISIBLE   \033[0m : " << setw(10) << boolToString(LEFT_POST_VISIBLE) << endl;
+            cout << "    \033[3mRIGHT_POST_VISIBLE  \033[0m : " << setw(10) << boolToString(RIGHT_POST_VISIBLE) << endl;
+            cout << "    \033[3mORIENTATION_OK      \033[0m : " << setw(10) << boolToString(ORIENTATION_OK) << endl;
+            cout << "    \033[3mAPPROACH_OK         \033[0m : " << setw(10) << boolToString(APPROACH_OK) << endl;
           }
 
-          // ----- BEGIN CONTROL ALGORITHM -----
+          // ----- BEGIN STATE MACHINE -----
 
-          // ORIENTATION CONTROLLER:
-          if (ORIENTATION_OK == false && APPROACH_OK == false) {
+          // Update Transition Vector:
+          TRANS[0] = BALL_VISIBLE;
+          TRANS[1] = LEFT_POST_VISIBLE;
+          TRANS[2] = RIGHT_POST_VISIBLE;
 
-            // Check if orientation is ok:
-            if (BALL_REL_TO_IMAGE >= -ORI_ORI_TOL && BALL_REL_TO_IMAGE <= ORI_ORI_TOL) {
+          // Determine Current state:
+          switch(STATE) {
 
-              // Check if position is ok:
-              if (BALL_REL_TO_GOAL >= -ORI_POS_TOL && BALL_REL_TO_GOAL <= ORI_POS_TOL) {
-
-                // ORIENTATION CONTROL done:
-                ORIENTATION_OK = true;
-
-                if (DEBUG == true) {
-                  cout << "\033[1;33mOrientation control is now done!\033[0m" << endl;
-                }
-
+            case STATE_INIT:
+            init();
+              if (boolCompare(TRANS, T, F, F)) {
+                transState(STATE_GOAL_SEARCH);
+              }
+              else if (boolCompare(TRANS, T, F, T)) {
+                transState(STATE_RIGHT_FOUND);
+              }
+              else if (boolCompare(TRANS, T, T, F)) {
+                transState(STATE_LEFT_FOUND);
+              }
+              else if (boolCompare(TRANS, T, T, T)) {
+                transState(STATE_CONTROL);
               }
               else {
-
-                // Perform ORI-POS-CONTROL:
-                controlOriPos();
-
+                transState(STATE_BALL_SEARCH);
               }
-            }
-            else {
+              break;
 
-              // Perform ORI_ORI_CONTROL:
-              controlOri();
-
-            }
-
-          }
-          // APPROACH CONTROLLER:
-          else if (ORIENTATION_OK == true && APPROACH_OK == false) {
-
-            // Check if orientation is ok:
-            if (BALL_REL_TO_IMAGE >= -ORI_ORI_TOL && BALL_REL_TO_IMAGE <= ORI_ORI_TOL) {
-
-              // Check if position is ok:
-              if (BALL_DIST < APP_POS_TOL) {
-
-                // APPROACH CONTROL done:
-                APPROACH_OK = true;
-
-                if (DEBUG == true) {
-                  cout << "\033[1;33mApproach control is now done!\033[0m" << endl;
-                }
-
+            case STATE_BALL_SEARCH:
+              if (boolCompare(TRANS, T, T, T)) {
+                transState(STATE_CONTROL);
+              }
+              else if (boolCompare(TRANS, F, X, X)) {
+                transState(STATE_BALL_SEARCH);
+              }
+              else if (boolCompare(TRANS, T, F, F)) {
+                transState(STATE_GOAL_SEARCH);
+              }
+              else if (boolCompare(TRANS, T, F, T)) {
+                transState(STATE_RIGHT_FOUND);
+              }
+              else if (boolCompare(TRANS, T, T, F)) {
+                transState(STATE_LEFT_FOUND);
               }
               else {
-
-                // Perform ORI-POS-CONTROL:
-                controlAppPos();
-
+                transState(STATE_BALL_SEARCH);
               }
-            }
-            else {
+              break;
 
-              // Perform ORI_ORI_CONTROL:
-              controlOri();
+            case STATE_LEFT_FOUND:
+              if (boolCompare(TRANS, T, T, T)) {
+                transState(STATE_CONTROL);
+              }
+              else if (boolCompare(TRANS, T, F, T)) {
+                transState(STATE_STEP_BACK_LEFT);
+              }
+              else if (boolCompare(TRANS, F, X, T)) {
+                transState(STATE_STEP_BACK_LEFT);
+              }
+              else if (boolCompare(TRANS, X, X, F)) {
+                transState(STATE_LEFT_FOUND);
+              }
+              else {
+                transState(STATE_LEFT_FOUND);
+              }
+              break;
 
-            }
+            case STATE_RIGHT_FOUND:
+              if (boolCompare(TRANS, T, T, T)) {
+                transState(STATE_CONTROL);
+              }
+              else if (boolCompare(TRANS, T, T, F)) {
+                transState(STATE_STEP_BACK_RIGHT);
+              }
+              else if (boolCompare(TRANS, F, T, X)) {
+                transState(STATE_STEP_BACK_RIGHT);
+              }
+              else if (boolCompare(TRANS, X, F, X)) {
+                transState(STATE_RIGHT_FOUND);
+              }
+              else {
+                transState(STATE_RIGHT_FOUND);
+              }
+              break;
+            break;
+
+            case STATE_STEP_BACK_LEFT:
+              if (boolCompare(TRANS, T, F, T)) {
+                transState(STATE_RIGHT_FOUND);
+              }
+              else if (boolCompare(TRANS, F, X, X)) {
+                transState(STATE_BALL_SEARCH);
+              }
+              else if (boolCompare(TRANS, T, T, T)) {
+                transState(STATE_CONTROL);
+              }
+              else {
+                transState(STATE_STEP_BACK_LEFT);
+              }
+              break;
+
+            case STATE_STEP_BACK_RIGHT:
+              if (boolCompare(TRANS, T, T, F)) {
+                transState(STATE_LEFT_FOUND);
+              }
+              else if (boolCompare(TRANS, F, X, X)) {
+                transState(STATE_BALL_SEARCH);
+              }
+              else if (boolCompare(TRANS, T, T, T)) {
+                transState(STATE_CONTROL);
+              }
+              else {
+                transState(STATE_STEP_BACK_LEFT);
+              }
+              break;
+
+            case STATE_CONTROL:
+              if (boolCompare(TRANS, F, X, X)) {
+                transState(STATE_BALL_SEARCH);
+              }
+              else if (boolCompare(TRANS, T, X, X)) {
+                transState(STATE_CONTROL);
+              }
+              else {
+                transState(STATE_CONTROL);
+              }
+              break;
+
+            case STATE_GOAL_SEARCH:
+              if (boolCompare(TRANS, T, T, T)) {
+                transState(STATE_CONTROL);
+              }
+              else if (boolCompare(TRANS, T, F, T)) {
+                transState(STATE_RIGHT_FOUND);
+              }
+              else if (boolCompare(TRANS, T, T, F)) {
+                transState(STATE_LEFT_FOUND);
+              }
+              else if (boolCompare(TRANS, F, X, X)) {
+                transState(STATE_BALL_SEARCH);
+              }
+              else {
+                walker(0, 0, 1);
+                transState(STATE_GOAL_SEARCH);
+              }
+              break;
+
+            case STATE_ERROR:
+              break;
 
           }
-          // KICK CONTROLLER:
-          else if (ORIENTATION_OK == true && APPROACH_OK == true) {
 
-            // Perform Kick:
-            controlKick();
-
-          }
-
-          // ----- END CONTROL ALGORITHM -----
+          // ----- END STATE MACHINE -----
 
           // DATA_IS_NEW to false:
           DATA_IS_NEW = false;
@@ -253,6 +367,213 @@ public:
         rate_sleep.sleep();
 
   		}
+
+    }
+
+    // Bool Comparison:
+    bool boolCompare(bool trans[3], int s0, int s1, int s2) {
+
+      bool out = true;
+
+      // s0
+      switch(s0) {
+        case F:
+          if (trans[0] != false) {
+            out = false;
+          }
+          break;
+        case T:
+          if (trans[0] != true) {
+            out = false;
+          }
+          break;
+        case X:
+          break;
+      }
+
+      // s1
+      switch(s1) {
+        case F:
+          if (trans[1] != false) {
+            out = false;
+          }
+          break;
+        case T:
+          if (trans[1] != true) {
+            out = false;
+          }
+          break;
+        case X:
+          break;
+      }
+
+      // s2
+      switch(s2) {
+        case F:
+          if (trans[2] != false) {
+            out = false;
+          }
+          break;
+        case T:
+          if (trans[2] != true) {
+            out = false;
+          }
+          break;
+        case X:
+          break;
+      }
+
+      return out;
+
+    }
+
+    // State transition function with debug information:
+    void transState(int nextState) {
+      if (DEBUG == true) {
+        cout << "\033[1;33mState Transition:\033[0m " << stateToString(STATE) << " --> " << stateToString(nextState) << endl;
+      }
+
+      // To State Action:
+      switch (nextState) {
+          case STATE_INIT:
+            init();
+            break;
+          case STATE_CONTROL:
+            control();
+            break;
+          case STATE_BALL_SEARCH:
+            ballSearch();
+            break;
+          case STATE_RIGHT_FOUND:
+            rightFound();
+            break;
+          case STATE_LEFT_FOUND:
+            leftFound();
+            break;
+          case STATE_STEP_BACK_RIGHT:
+            stepBack();
+            break;
+          case STATE_STEP_BACK_LEFT:
+            stepBack();
+            break;
+          case STATE_GOAL_SEARCH:
+            goalSearch();
+            break;
+          case STATE_ERROR:
+            cout << "\033[1;31mHELP I'M IN ERROR STATE!\033[0m" << endl;
+            break;
+      }
+      STATE = nextState;
+    }
+
+    // State to string conversion:
+    string stateToString(int state) {
+
+      switch (state) {
+        case STATE_INIT:
+          return "STATE_INIT";
+        case STATE_CONTROL:
+          return "STATE_CONTROL";
+        case STATE_BALL_SEARCH:
+          return "STATE_BALL_SEARCH";
+        case STATE_RIGHT_FOUND:
+          return "STATE_RIGHT_FOUND";
+        case STATE_LEFT_FOUND:
+          return "STATE_LEFT_FOUND";
+        case STATE_STEP_BACK_RIGHT:
+          return "STATE_STEP_BACK_RIGHT";
+        case STATE_STEP_BACK_LEFT:
+          return "STATE_STEP_BACK_LEFT";
+        case STATE_GOAL_SEARCH:
+          return "STATE_GOAL_SEARCH";
+        case STATE_ERROR:
+          return "STATE_ERROR";
+      }
+
+    }
+
+    string boolToString(bool b) {
+      if (b == true) {
+        return "TRUE";
+      }
+      else {
+        return "FALSE";
+      }
+    }
+
+    // STATE -> CONTROL:
+    void control() {
+      // ORIENTATION CONTROLLER:
+      if (ORIENTATION_OK == false && APPROACH_OK == false) {
+
+        // Check if orientation is ok:
+        if (BALL_REL_TO_IMAGE >= -ORI_ORI_TOL && BALL_REL_TO_IMAGE <= ORI_ORI_TOL) {
+
+          // Check if position is ok:
+          if (BALL_REL_TO_GOAL >= -ORI_POS_TOL && BALL_REL_TO_GOAL <= ORI_POS_TOL) {
+
+            // ORIENTATION CONTROL done:
+            ORIENTATION_OK = true;
+
+            if (DEBUG == true) {
+              cout << "\033[1;33mOrientation control is now done!\033[0m" << endl;
+            }
+
+          }
+          else {
+
+            // Perform ORI-POS-CONTROL:
+            controlOriPos();
+
+          }
+        }
+        else {
+
+          // Perform ORI_ORI_CONTROL:
+          controlOri();
+
+        }
+
+      }
+      // APPROACH CONTROLLER:
+      else if (ORIENTATION_OK == true && APPROACH_OK == false) {
+
+        // Check if orientation is ok:
+        if (BALL_REL_TO_IMAGE >= -ORI_ORI_TOL && BALL_REL_TO_IMAGE <= ORI_ORI_TOL) {
+
+          // Check if position is ok:
+          if (BALL_DIST < APP_POS_TOL) {
+
+            // APPROACH CONTROL done:
+            APPROACH_OK = true;
+
+            if (DEBUG == true) {
+              cout << "\033[1;33mApproach control is now done!\033[0m" << endl;
+            }
+
+          }
+          else {
+
+            // Perform ORI-POS-CONTROL:
+            controlAppPos();
+
+          }
+        }
+        else {
+
+          // Perform ORI_ORI_CONTROL:
+          controlOri();
+
+        }
+
+      }
+      // KICK CONTROLLER:
+      else if (ORIENTATION_OK == true && APPROACH_OK == true) {
+
+        // Perform Kick:
+        controlKick();
+
+      }
 
     }
 
@@ -342,6 +663,135 @@ public:
 
     }
 
+    // Ball search:
+    void ballSearch() {
+
+      // Turn left:
+      walker(0, 0, 1);
+
+    }
+
+    // Left Found:
+    void leftFound() {
+
+      // Turn right:
+      walker(0, 0, -0.3);
+
+    }
+
+    // Right Found:
+    void rightFound() {
+
+      // Turn left:
+      walker(0, 0, 0.3);
+
+    }
+
+    // Step Back:
+    void stepBack() {
+
+      // Step Back:
+      walker(-0.5, 0, 0);
+
+    }
+
+    // Init:
+    void init() {
+
+      // Stand up:
+      walker(0.01, 0, 0);
+
+      // Align Head:
+      sensor_msgs::JointState alignHead;
+      alignHead.name.push_back("HeadYaw");
+      alignHead.name.push_back("HeadPitch");
+      alignHead.position.push_back(0.0);
+      alignHead.position.push_back(0.0);
+      mooveJoints(alignHead, 0.2, 0);
+      sleep(1);
+
+    }
+
+    void goalSearch() {
+
+      // Align Ball relative to image:
+      controlOri();
+
+      // Init Head turning:
+      float angle = 0.0;
+      bool GOAL_FOUND = false;
+      sensor_msgs::JointState turnHead;
+      turnHead.name.push_back("HeadYaw");
+      turnHead.position.push_back(0.0);
+
+      // Turn Head left:
+      for (int i = 1; i <= 5; i++) {
+
+        // Turn Head: (20deg per section)
+        angle = i * 0.35;
+        turnHead.position[0] = angle;
+        mooveJoints(turnHead, 0.05, 0);
+        sleep(1);
+
+        // Check if right goal post found:
+        DATA_IS_NEW = false;
+        while(!DATA_IS_NEW) {}
+        if(RIGHT_POST_VISIBLE == true) {
+          GOAL_FOUND = true;
+          goto POSTFOUND;
+        }
+
+      }
+
+      // Turn Head Back:
+      turnHead.position[0] = 0.0;
+      mooveJoints(turnHead, 0.2, 0);
+      sleep(1);
+
+      // Turn Head right:
+      for (int i = 1; i <= 5; i++) {
+
+        // Turn Head: (20deg per section)
+        angle = i * -0.35;
+        turnHead.position[0] = angle;
+        mooveJoints(turnHead, 0.05, 0);
+        sleep(1);
+
+        // Check if left goal post found:
+        DATA_IS_NEW = false;
+        while(!DATA_IS_NEW) {}
+        if(LEFT_POST_VISIBLE == true) {
+          GOAL_FOUND = true;
+          goto POSTFOUND;
+        }
+
+      }
+
+      POSTFOUND:
+
+      // Turn Head Back:
+      turnHead.position[0] = 0.0;
+      mooveJoints(turnHead, 0.2, 0);
+      sleep(1);
+
+      // Move Robot if goal found:
+      if (GOAL_FOUND == true) {
+        walker(0, 0, angle);
+        if (angle > 0) {
+          walker(0, -0.5, 0);
+        }
+        else {
+          walker(0, 0.5, 0);
+        }
+      }
+
+      // Orientation Control:
+      DATA_IS_NEW = false;
+      while(!DATA_IS_NEW) {}
+      controlOri();
+
+    }
+
     // KICKING CONTROLLER:
     void controlKick() {
 
@@ -363,8 +813,6 @@ public:
       oneFoot1.position.push_back(0.2);
       mooveJoints(oneFoot1, 0.05, 1);
 
-      sleep(3);
-
       // stand on one foot:
       sensor_msgs::JointState oneFoot2;
       oneFoot2.name.push_back("RKneePitch");
@@ -372,8 +820,6 @@ public:
       oneFoot2.position.push_back(0.4);
       oneFoot2.position.push_back(-0.4);
       mooveJoints(oneFoot2, 0.05, 1);
-
-      sleep(3);
 
       // kick:
       sensor_msgs::JointState oneFoot3;
@@ -385,8 +831,6 @@ public:
       oneFoot3.position.push_back(0.4);
       mooveJoints(oneFoot3, 0.8, 1);
 
-      sleep(3);
-
       // retract foot:
       sensor_msgs::JointState oneFoot4;
       oneFoot4.name.empty();
@@ -397,8 +841,6 @@ public:
       oneFoot4.position.push_back(-0.4);
       mooveJoints(oneFoot4, 0.2, 1);
 
-      sleep(3);
-
       // stand on both foot:
       sensor_msgs::JointState oneFoot5;
       oneFoot5.name.push_back("RKneePitch");
@@ -406,8 +848,6 @@ public:
       oneFoot5.position.push_back(-0.4);
       oneFoot5.position.push_back(0.4);
       mooveJoints(oneFoot5, 0.05, 1);
-
-      sleep(3);
 
       // Lean back to neutral position:
       sensor_msgs::JointState oneFoot6;
@@ -423,17 +863,13 @@ public:
       oneFoot6.position.push_back(-0.2);
       mooveJoints(oneFoot6, 0.05, 1);
 
-      sleep(3);
-
-      // reuturn to walking!
-
     }
 
     // Walker function:
     void walker(double x, double y, double theta) {
 
       if (DEBUG == true) {
-        cout << "\033[1;34mMoving:\033[0m" << endl;
+        cout << "\033[1;33mMoving:\033[0m" << endl;
         cout << "    \033[3mX                   \033[0m : " << setw(10) << x << endl;
         cout << "    \033[3mY                   \033[0m : " << setw(10) << y << endl;
         cout << "    \033[3mtheta               \033[0m : " << setw(10) << theta << endl;
@@ -449,9 +885,13 @@ public:
   		walk_pub.publish(pose);
 
       // Wait until movement is finished:
-      sleep(5);
+      float sleepTime = 0;
+      sleepTime += abs(theta * 5.0);
+      sleepTime += abs(x * 10.0);
+      sleepTime += abs(y * 20.0);
+      cout << "\033[1;33mWaiting: \033[0m" << max(2,(int)sleepTime) << "\033[1;33m seconds\033[0m" << endl;
+      sleep(max(2,(int)sleepTime));
       // TODO: Find a better method
-
       if (DEBUG == true) {
         cout << "\033[1;32mMovement done!\033[0m" << endl;
       }
@@ -460,13 +900,24 @@ public:
 
     void visionMessageCallback(const RoNAOldo::visionMsg::ConstPtr &inMessage) {
 
-      if (inMessage->ball_detected_in_lastsec && inMessage->left_marker_detected_in_lastsec && inMessage->right_marker_detected_in_lastsec) {
-        BALL_REL_TO_GOAL = inMessage->ball_rel_goal;
-        BALL_DIST = inMessage->ball_distance;
-        BALL_REL_TO_IMAGE = inMessage->ball_rel_image;
+      if (inMessage->ball_detected_in_lastsec) {
 
-        DATA_IS_NEW = true;
+        BALL_REL_TO_IMAGE = inMessage->ball_rel_image;
+        BALL_DIST = inMessage->ball_distance;
+
+        if (inMessage->left_marker_detected_in_lastsec && inMessage->right_marker_detected_in_lastsec) {
+
+          BALL_REL_TO_GOAL = inMessage->ball_rel_goal;
+
+        }
+
       }
+
+      BALL_VISIBLE = inMessage->ball_detected_in_lastsec;
+      LEFT_POST_VISIBLE = inMessage->left_marker_detected_in_lastsec;
+      RIGHT_POST_VISIBLE = inMessage->right_marker_detected_in_lastsec;
+
+      DATA_IS_NEW = true;
 
     }
 
@@ -542,11 +993,11 @@ public:
       }
       action_execute.header.stamp = ros::Time::now();
       jointCommandPub.publish(action_execute);
-      JOINT_ACTION_STATUS = 0;
-      ros::Rate rate_sleep(10);
-      while(JOINT_ACTION_STATUS != 3 && nh_.ok()) {
-        rate_sleep.sleep();
-      }
+      //JOINT_ACTION_STATUS = 0;
+      //usleep(500000);
+      sleep(1);
+      while((JOINT_ACTION_STATUS == 1 || JOINT_ACTION_STATUS == 0) && nh_.ok()) {}
+      sleep(1);
 
     }
 
