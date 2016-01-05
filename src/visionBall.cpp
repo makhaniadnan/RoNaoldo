@@ -172,44 +172,66 @@ public:
 	}
 
 	void detectBallUsingColorBlob(Mat image) {
-		Mat image_color;
-		Mat image_hsv;
-		Mat image_dilate;
+		Mat image_hsv_redonly;
+
 		// Convert to HSV and extract colors:
 		try {
+			//convert to HSV
+			Mat image_hsv;
 			cvtColor(image, image_hsv, CV_BGR2HSV);
 
-			Scalar redMin = Scalar(0 * 180, 0.4 * 255, 0.8 * 255);
-			Scalar redMax = Scalar(30.0 / 360.0 * 180, 1 * 255, 1 * 255);
+			//set min and max for red color
+			Scalar redMin1 = Scalar(0 * 180, 0.5 * 255, 0.3 * 255);
+			Scalar redMax1 = Scalar(30.0 / 360.0 * 180, 1 * 255, 1 * 255);
 
-			inRange(image_hsv, redMin, redMax, image_color);
-			imshow("Colour extraction", image_color);
+			Mat image_hsv_blob1;
+			inRange(image_hsv, redMin1, redMax1, image_hsv_blob1);
 
-			//imshow("Blob Extraction", image_dilate);
+			//set min and max for red color again
+			//we have a red area from 330° to 30°, but not possible in one step in cv
+			Scalar redMin2 = Scalar(330 / 360 * 180, 0.5 * 255, 0.3 * 255);
+			Scalar redMax2 = Scalar(360.0 / 360.0 * 180, 1 * 255, 1 * 255);
+
+			Mat image_hsv_blob2;
+			inRange(image_hsv, redMin2, redMax2, image_hsv_blob2);
+
+			//add both extracted red colors
+			add(image_hsv_blob1, image_hsv_blob2, image_hsv_redonly, noArray());
+
+			//show result
+			imshow("HSV blob extraction 1", image_hsv_blob1);
+			imshow("HSV blob extraction 2", image_hsv_blob2);
+			imshow("HSV blob extraction", image_hsv_redonly);
+
+			//wait 30ms until we show next picture
 			waitKey(30);
 		} catch (...) {
 			ROS_ERROR("Error in Colour Extraction!");
 		}
 
-		// Blob Extraction:
-		Mat image_keypoints;
-		vector<KeyPoint> keypoints;
+		// Dilate and/or Erode:
 		try {
-			Scalar redMin2 = Scalar(0 * 180, 0.2 * 255, 0.8 * 255);
-			Scalar redMax2 = Scalar(30.0 / 360.0 * 180, 1 * 255, 1 * 255);
-
-			Mat image_hsv_blob;
-			inRange(image_hsv, redMin2, redMax2, image_hsv_blob);
-			imshow("HSV blob extraction", image_hsv_blob);
-
-			// Dilate and/or Erode:
 			int erosion_size = 5;
 			Mat element = getStructuringElement(MORPH_ELLIPSE,
 					Size(2 * erosion_size + 1, 2 * erosion_size + 1),
 					Point(erosion_size, erosion_size));
-			dilate(image_hsv_blob, image_dilate, element);
-			erode(image_dilate, image_dilate, element);
 
+			//make black larger
+			erode(image_hsv_redonly, image_hsv_redonly, element);
+
+			//make black smaller
+			dilate(image_hsv_redonly, image_hsv_redonly, element);
+
+			imshow("Image eroded & dialated", image_hsv_redonly);
+		} catch (...) {
+			ROS_ERROR("Error in Colour Extraction!");
+		}
+
+
+		// Blob Extraction:
+		Mat image_keypoints;
+		vector<KeyPoint> keypoints;
+		try {
 			// Initialize Blob detector class:
 			SimpleBlobDetector::Params params;
 			params.minDistBetweenBlobs = 50.0f;
@@ -229,9 +251,9 @@ public:
 			SimpleBlobDetector blob_detector(params);
 
 			// detect the blobs keypoints (center of mass):
-			blob_detector.detect(image_dilate, keypoints);
+			blob_detector.detect(image_hsv_redonly, keypoints);
 
-			drawKeypoints(image_dilate, keypoints, image_keypoints);
+			drawKeypoints(image_hsv_redonly, keypoints, image_keypoints);
 
 			// extract the x y coordinates of the keypoints:
 			for (int i = 0; i < keypoints.size(); i++) {
@@ -242,72 +264,94 @@ public:
 				//draw keypoiints
 				circle(image_keypoints, Point(X, Y), 30, Scalar(255, 0, 0), 10);
 			}
-
 		} catch (...) {
 			ROS_ERROR("Error in Blob Detection!");
 		}
 
-		//ensure it is in valid area&
-		color_camshift_region_of_interest = color_camshift_region_of_interest
-				& Rect(0, 0, image_color.cols, image_color.rows);
-		if (color_camshift_region_of_interest.area() < 1) {
-			color_camshift_region_of_interest = Rect(0, 0, image_color.cols,
-					image_color.rows);
-		}
-		cout << "region of interest" << color_camshift_region_of_interest
-				<< endl;
-
-		//termcriteria is type, maxCount, epsilon (changes smaller than epsilon, stop searching)
-		CamShift(image_color, color_camshift_region_of_interest,
-				TermCriteria((TermCriteria::COUNT || TermCriteria::EPS), 40,
-						1));
-
-		cout << "region of interest" << color_camshift_region_of_interest
-				<< endl;
-
-		const Scalar rect_color = Scalar(0, 255, 0);
-		rectangle(image_keypoints, color_camshift_region_of_interest,
-				rect_color, 5);
-
-		ball_detected = false;
 		double rect_center_x = 0;
 		double rect_center_y = 0;
 		double ball_distance = 0;
-		//focal length of top camera
-		double f2 = 553.736023;
-		//if camshift detected a "ball"
+		try {
+			Mat image_color = image_hsv_redonly;
 
-		if (color_camshift_region_of_interest.area() > 1.0) {
-			//check if blob detection also got one
-			rect_center_x = color_camshift_region_of_interest.x
-					+ (color_camshift_region_of_interest.width / 2.0);
-			rect_center_y = color_camshift_region_of_interest.y
-					+ (color_camshift_region_of_interest.height / 2.0);
-			ball_distance =
-					f2
-							* (70.00
-									/ (0.5
-											* (color_camshift_region_of_interest.height
-													+ color_camshift_region_of_interest.width)));
+			//ensure it is in valid area&
+			color_camshift_region_of_interest =
+					color_camshift_region_of_interest
+							& Rect(0, 0, image_color.cols, image_color.rows);
 
-			// extract the x y coordinates of the keypoints:
-			for (int i = 0; i < keypoints.size(); i++) {
-				double distance = norm(
-						keypoints[i].pt
-								- Point2f(rect_center_x, rect_center_y));
-				ROS_INFO("distance is %f", distance);
-				if (distance < 10.0) {
-					ROS_INFO("found our ball in camshift and blob detection");
-					ball_detected = true;
-					break;
-				}
+			//if area would be zero, reset it as well
+			if (color_camshift_region_of_interest.area() < 1) {
+				color_camshift_region_of_interest = Rect(0, 0, image_color.cols,
+						image_color.rows);
 			}
+
+			//termcriteria is type, maxCount, epsilon (changes smaller than epsilon, stop searching)
+			CamShift(image_color, color_camshift_region_of_interest,
+					TermCriteria((TermCriteria::COUNT || TermCriteria::EPS), 40,
+							1));
+
+			cout << "region of interest" << color_camshift_region_of_interest
+					<< endl;
+
+			//draw rectangle of region of interest in image_keypoints
+			const Scalar rect_color = Scalar(0, 255, 0);
+			rectangle(image_keypoints, color_camshift_region_of_interest,
+					rect_color, 5);
+		} catch (...) {
+			ROS_ERROR("Error in Camshift detection!");
 		}
 
-		//draw keypoints
-		//drawKeypoints(image_dilate, keypoints, image_keypoints);
-		imshow("Blob Extraction", image_keypoints);
+		//show keypoints in image
+		imshow("Keypoints", image_keypoints);
 
+
+		//check if we detected the ball
+		//in both ways (camshift and blob detector)
+		try {
+			ball_detected = false;
+			rect_center_x = 0;
+			rect_center_y = 0;
+			ball_distance = 0;
+
+			//focal length of top camera
+			double f2 = 553.736023;
+
+			//if camshift detected a "ball"
+			if (color_camshift_region_of_interest.area() > 1.0) {
+				//check if blob detection also got one
+				rect_center_x = color_camshift_region_of_interest.x
+						+ (color_camshift_region_of_interest.width / 2.0);
+				rect_center_y = color_camshift_region_of_interest.y
+						+ (color_camshift_region_of_interest.height / 2.0);
+
+				ball_distance =
+						f2
+								* (70.00
+										/ (0.5
+												* (color_camshift_region_of_interest.height
+														+ color_camshift_region_of_interest.width)));
+
+				//extract the x y coordinates of the keypoints:
+				//and check if center is the same
+				for (int i = 0; i < keypoints.size(); i++) {
+					double distance = norm(
+							keypoints[i].pt
+									- Point2f(rect_center_x, rect_center_y));
+					ROS_INFO("distance is %f", distance);
+					if (distance < 10.0) {
+						ROS_INFO(
+								"found our ball in camshift and blob detection");
+						ball_detected = true;
+						break;
+					}
+				}
+			}
+		} catch (...) {
+			ROS_ERROR("cannot check ball position");
+		}
+
+
+		//publish ball position
 		try {
 			if (ball_detected) {
 				RoNAOldo::ballMsg ballMsg;
@@ -357,6 +401,8 @@ public:
 
 		//try to detect ball using blop and color Detection
 		detectBallUsingColorBlob(image);
+
+		return;
 
 		// Back Projection + mean/cam shift tracking:
 		try {
@@ -426,14 +472,13 @@ int main(int argc, char** argv) {
 	ros::init(argc, argv, "RoNAOldo_vision");
 
 	ros::NodeHandle n;
-	namedWindow("ROI");
-	namedWindow("hist");
-	namedWindow("Tracking");
-	namedWindow("Backproj");
-	namedWindow("goal");
-	namedWindow("Colour extraction");
-	namedWindow("Blob Extraction");
+
+	namedWindow("HSV blob extraction 1");
+	namedWindow("HSV blob extraction 2");
+	namedWindow("Image eroded & dialated");
 	namedWindow("HSV blob extraction");
+	namedWindow("Keypoints");
+
 
 	startWindowThread();
 
