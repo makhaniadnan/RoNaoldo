@@ -116,13 +116,20 @@ public:
 			//then offset scaled by half of the goal distance
 			//ball_rel_goal = offset /( 0.5* (M2 - M1) )
 			//final formula is =((2*B)-(M1+M2))/(M2-M1)
-			float offset = msg.ball_rel_goal = ((2.0
+			msg.ball_rel_goal = ((2.0
 					* last_ball_msg.ball_center_x)
 					- (last_goal_msg.marker1_center_x
 							+ last_goal_msg.marker2_center_x))
 					/ (last_goal_msg.marker2_center_x
 							- last_goal_msg.marker1_center_x);
 
+
+			cout << "last ball center" << last_ball_msg << endl;
+			cout << "last goal" << last_goal_msg << endl;
+			cout << "our msg" << msg << endl;
+		}
+		//if ball seen, publish its relative position and distance
+		if (msg.ball_detected_in_lastsec) {
 			//take ball center
 			//offset = image center - ball
 			//scale offest from -1 for left image side to +1 for right image side
@@ -130,9 +137,6 @@ public:
 			//easier calculatoin version (but same as above)
 			msg.ball_rel_image = (1.0 * last_ball_msg.ball_center_x
 					/ (last_ball_msg.image_width / 2.0)) - 1.0;
-			cout << "last ball center" << last_ball_msg << endl;
-			cout << "last goal" << last_goal_msg << endl;
-			cout << "our msg" << msg << endl;
 
 			msg.ball_distance = last_ball_msg.ball_distance;
 		}
