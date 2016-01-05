@@ -241,8 +241,8 @@ public:
 			params.filterByCircularity = true;
 			params.filterByArea = true;
 			params.minArea = 400.0f;
-			params.maxArea = 3000.0f;
-			params.minCircularity = 0.4f;
+			params.maxArea = 50000.0f;
+			params.minCircularity = 0.5f;
 			params.maxCircularity = 1.0f;
 			params.minConvexity = 0.5;
 			params.maxConvexity = 1.0;
