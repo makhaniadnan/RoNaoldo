@@ -12,7 +12,11 @@
  Sebastian Wagner
  Tim Bruedigam
 
- */
+
+Vision part by
+(c) Adnan Makhani
+(c) Andreas Plieninger
+*/
 
 #include <iostream>
 #include <fstream>

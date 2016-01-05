@@ -1,3 +1,22 @@
+/*
+
+ HUMANOID ROBOTIC SYSTEMS
+ Final Project
+
+ Vision Part
+
+ Group B
+
+ Adnan Makhani
+ Andreas Plieninger
+ Sebastian Wagner
+ Tim Bruedigam
+
+
+Vision part by
+(c) Adnan Makhani
+(c) Andreas Plieninger
+*/
 #include <ros/ros.h>
 #include <image_transport/image_transport.h>
 #include <opencv2/highgui/highgui.hpp>

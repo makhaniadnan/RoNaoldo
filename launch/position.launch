@@ -1,3 +1,12 @@
+<!--
+ HUMANOID ROBOTIC SYSTEMS
+ Final Project
+
+ Vision Part
+
+ Lauch file for position part
+ (c) Andreas Plieninger
+ -->
 <launch>
     <node name="relative_position" pkg="RoNAOldo" type="RoNAOldo_relative_position" output="screen">
         <remap from="goalPositionTop" to="/goalPosition" />
