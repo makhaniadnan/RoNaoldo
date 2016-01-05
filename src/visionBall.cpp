@@ -119,6 +119,23 @@ public:
 	// Counter: <just for testing>
 	int count;
 
+	//color parameters
+	double color1_start_h = 0;
+	double color1_start_s = 0;
+	double color1_start_v = 0;
+	double color1_end_h = 0;
+	double color1_end_s = 0;
+	double color1_end_v = 0;
+
+	double color2_start_h = 0;
+	double color2_start_s = 0;
+	double color2_start_v = 0;
+	double color2_end_h = 0;
+	double color2_end_s = 0;
+	double color2_end_v = 0;
+
+	double erosion_and_dilation_size = 5;
+
 	Vision(NodeHandle n) :
 			it(nh_) {
 
@@ -141,6 +158,33 @@ public:
 		c1 = 327.382898;
 		c2 = 225.026380;
 		float alphaf1 = alpha * f1;
+
+
+		//private node handle
+		ros::NodeHandle nh_p("~");
+
+		//read color parameters
+		nh_p.param("color1_start_h",color1_start_h,0.0);
+		nh_p.param("color1_start_s",color1_start_s,0.0);
+		nh_p.param("color1_start_v",color1_start_v,0.0);
+		nh_p.param("color1_end_h",color1_end_h,0.0);
+		nh_p.param("color1_end_s",color1_end_s,0.0);
+		nh_p.param("color1_end_v",color1_end_v,0.0);
+
+		nh_p.param("color2_start_h",color2_start_h,0.0);
+		nh_p.param("color2_start_s",color2_start_s,0.0);
+		nh_p.param("color2_start_v",color2_start_v,0.0);
+		nh_p.param("color2_end_h",color2_end_h,0.0);
+		nh_p.param("color2_end_s",color2_end_s,0.0);
+		nh_p.param("color2_end_v",color2_end_v,0.0);
+
+
+		nh_p.param("erosion_and_dilation_size",erosion_and_dilation_size,5.0);
+
+
+
+		Scalar redMin1 = Scalar(0 * 180, 0.5 * 255, 0.3 * 255);
+					Scalar redMax1 = Scalar(30.0 / 360.0 * 180, 1 * 255, 1 * 255);
 
 		// Init Camera Parameters:
 		dist = (Mat_<float>(1, 5) << k1, k2, k3, k4, k5);
@@ -180,17 +224,19 @@ public:
 			Mat image_hsv;
 			cvtColor(image, image_hsv, CV_BGR2HSV);
 
-			//set min and max for red color
-			Scalar redMin1 = Scalar(0 * 180, 0.5 * 255, 0.3 * 255);
-			Scalar redMax1 = Scalar(30.0 / 360.0 * 180, 1 * 255, 1 * 255);
+			//set min and max for red color#
+			//For HSV, Hue range is [0,179], Saturation range is [0,255] and Value range is [0,255]
+			//but in config file, we use h form 0 to 360, so *0.5 here
+			Scalar redMin1 = Scalar(color1_start_h * 0.5, color1_start_s * 255, color1_start_v * 255);
+			Scalar redMax1 = Scalar(color1_end_h * 0.5, color1_end_s * 255, color1_end_v * 255);
 
 			Mat image_hsv_blob1;
 			inRange(image_hsv, redMin1, redMax1, image_hsv_blob1);
 
 			//set min and max for red color again
 			//we have a red area from 330° to 30°, but not possible in one step in cv
-			Scalar redMin2 = Scalar(330 / 360 * 180, 0.5 * 255, 0.3 * 255);
-			Scalar redMax2 = Scalar(360.0 / 360.0 * 180, 1 * 255, 1 * 255);
+			Scalar redMin2 = Scalar(color2_start_h * 0.5, color2_start_s * 255, color2_start_v * 255);
+			Scalar redMax2 = Scalar(color2_end_h * 0.5, color2_end_s * 255, color2_end_v * 255);
 
 			Mat image_hsv_blob2;
 			inRange(image_hsv, redMin2, redMax2, image_hsv_blob2);
@@ -211,7 +257,7 @@ public:
 
 		// Dilate and/or Erode:
 		try {
-			int erosion_size = 5;
+			int erosion_size = (int) erosion_and_dilation_size;
 			Mat element = getStructuringElement(MORPH_ELLIPSE,
 					Size(2 * erosion_size + 1, 2 * erosion_size + 1),
 					Point(erosion_size, erosion_size));
@@ -240,7 +286,7 @@ public:
 			params.filterByColor = false;
 			params.filterByCircularity = true;
 			params.filterByArea = true;
-			params.minArea = 400.0f;
+			params.minArea = 300.0f;
 			params.maxArea = 50000.0f;
 			params.minCircularity = 0.5f;
 			params.maxCircularity = 1.0f;

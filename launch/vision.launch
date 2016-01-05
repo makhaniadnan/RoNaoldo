@@ -1,14 +1,45 @@
 <launch>
     <node name="relative_position" pkg="RoNAOldo" type="RoNAOldo_relative_position" output="screen">
+    	<!-- remap input -->
         <remap from="goalPositionTop" to="/top/goalPosition" />
         <remap from="ballTop" to="/top/ball" />
         <remap from="goalPositionBottom" to="/bottom/goalPosition" />
         <remap from="ballBottom" to="/bottom/ball" />
+        
+        <!-- no need to remap output -->
+        <!-- topic is relative_position -->
     </node>
 
     <!-- top namespace -->
+
     <node name="ball_vision_top" pkg="RoNAOldo" type="RoNAOldo_ballVision" output="screen" ns="top">
         <remap from="image" to="/nao/nao_robot/camera/top/camera/image_raw" />
+		
+		<!-- size of kernel used for erosion and dilation -->
+        <param name="erosion_and_dilation_size" type="double" value="3.0" />
+        
+        <!-- color picker for ball -->
+        <!-- use only colors between start hsv and end hsv -->
+        <!-- color1 and color2 will get added -->
+        
+        <!-- h can be between 0 and 360 -->
+        <param name="color1_start_h" type="double" value="0.0" />
+        <!-- s form 0.0 to 1.0 -->
+        <param name="color1_start_s" type="double" value="0.4" />
+        <!-- v form 0.0 to 1.0 -->
+        <param name="color1_start_v" type="double" value="0.25" />
+        <param name="color1_end_h" type="double" value="30.0" />
+        <param name="color1_end_s" type="double" value="1.0" />
+        <param name="color1_end_v" type="double" value="1.0" />
+
+		<!-- can not be disabled, so only use some small range -->        
+        <param name="color2_start_h" type="double" value="330.0" />
+        <param name="color2_start_s" type="double" value="0.5" />
+        <param name="color2_start_v" type="double" value="0.25" />
+        <param name="color2_end_h" type="double" value="360.0" />
+        <param name="color2_end_s" type="double" value="1.0" />
+        <param name="color2_end_v" type="double" value="1.0" />
+
     </node>
 
     <node name="marker_vision_top" pkg="RoNAOldo" type="RoNAOldo_vision_marker" output="screen" ns="top">
@@ -18,9 +49,34 @@
     <!-- bottom namespace -->
     <node name="ball_vision_bottom" pkg="RoNAOldo" type="RoNAOldo_ballVision" output="screen"  ns="bottom">
         <remap from="image" to="/nao/nao_robot/camera/bottom/camera/image_raw" />
+        
+        <!-- size of kernel used for erosion and dilation -->
+        <param name="erosion_and_dilation_size" type="double" value="5.0" />
+        
+        <!-- color picker for ball -->
+        <!-- use only colors between start hsv and end hsv -->
+        <!-- color1 and color2 will get added -->
+        
+        <!-- h can be between 0 and 360 -->
+        <param name="color1_start_h" type="double" value="0.0" />
+        <!-- s form 0.0 to 1.0 -->
+        <param name="color1_start_s" type="double" value="0.5" />
+        <!-- v form 0.0 to 1.0 -->
+        <param name="color1_start_v" type="double" value="0.25" />
+        <param name="color1_end_h" type="double" value="30.0" />
+        <param name="color1_end_s" type="double" value="1.0" />
+        <param name="color1_end_v" type="double" value="1.0" />
+        
+        <param name="color2_start_h" type="double" value="330.0" />
+        <param name="color2_start_s" type="double" value="0.5" />
+        <param name="color2_start_v" type="double" value="0.25" />
+        <param name="color2_end_h" type="double" value="360.0" />
+        <param name="color2_end_s" type="double" value="1.0" />
+        <param name="color2_end_v" type="double" value="1.0" />
+    
     </node>
 
     <node name="marker_vision_bottom" pkg="RoNAOldo" type="RoNAOldo_vision_marker" output="screen" ns="bottom">
         <remap from="image" to="/nao/nao_robot/camera/bottom/camera/image_raw" />
-    </node> -->
+    </node>
 </launch>
