@@ -42,6 +42,12 @@ public:
 	RoNAOldo::visionMsg v_msg;
 	RoNAOldo::ballMsg last_ball_msg;
 	RoNAOldo::goalPositionMsg last_goal_msg;
+
+	//position
+	//0 top
+	//1 bottom
+	uint8_t last_ball_msg_position;
+
 	ros::Time last_ball_msg_time;
 	ros::Time last_goal_msg_left_time;
 	ros::Time last_goal_msg_right_time;
@@ -59,16 +65,18 @@ public:
 				"relative_position", 10);
 		goalSub_top = nh_.subscribe("goalPositionTop", 10, &Relative::goalStore,
 				this);
-		ballSub_top = nh_.subscribe("ballTop", 10, &Relative::ballStore, this);
+		ballSub_top = nh_.subscribe("ballTop", 10, &Relative::ballTop, this);
 		goalSub_bottom = nh_.subscribe("goalPositionBottom", 10,
 				&Relative::goalStore, this);
-		ballSub_bottom = nh_.subscribe("ballBottom", 10, &Relative::ballStore,
+		ballSub_bottom = nh_.subscribe("ballBottom", 10, &Relative::ballBottom,
 				this);
 
 		//now minus ten seconds
 		last_ball_msg_time = ros::Time::now() - ros::Duration(10);
 		last_goal_msg_left_time = ros::Time::now() - ros::Duration(10);
 		last_goal_msg_right_time = ros::Time::now() - ros::Duration(10);
+
+		last_ball_msg_position = 0;
 
 		ROS_INFO("Relative class setup done");
 	}
@@ -91,13 +99,24 @@ public:
 
 		doCalc();
 	}
+	void ballBottom(RoNAOldo::ballMsg msg) {
+		//set to bottom
+		last_ball_msg_position = 1;
+		cout << "ball in bottom" << endl;
+		ballStore(msg);
+	}
+	void ballTop(RoNAOldo::ballMsg msg) {
+		//set to top
+		last_ball_msg_position = 0;
+		cout << "ball in top" << endl;
+		ballStore(msg);
+	}
 	void ballStore(RoNAOldo::ballMsg msg) {
 		ROS_INFO("store ball");
 		last_ball_msg = msg;
 		last_ball_msg_time = ros::Time::now();
 		doCalc();
 	}
-
 	void doCalc() {
 		RoNAOldo::visionMsg msg;
 
@@ -105,8 +124,10 @@ public:
 		msg.left_marker_detected_in_lastsec = false;
 		msg.right_marker_detected_in_lastsec = false;
 		msg.ball_rel_goal = 0;
-		msg.ball_rel_image = 0;
+		msg.ball_rel_image_x = 0;
+		msg.ball_rel_image_y = 0;
 		msg.ball_distance = 0;
+		msg.ball_in_top_or_bottom_camera = 0;
 
 		cout << "last_time" << last_ball_msg_time << endl;
 		cout << "now" << ros::Time::now() << endl;
@@ -154,11 +175,22 @@ public:
 			//scale offest from -1 for left image side to +1 for right image side
 			//msg.ball_rel_image = (last_ball_msg.ball_center_x - (last_ball_msg.image_width*0.5)) / (last_ball_msg.image_width*0.5)
 			//easier calculatoin version (but same as above)
-			msg.ball_rel_image = (1.0 * last_ball_msg.ball_center_x
+			msg.ball_rel_image_x = (1.0 * last_ball_msg.ball_center_x
 					/ (last_ball_msg.image_width / 2.0)) - 1.0;
 
 			msg.ball_distance = last_ball_msg.ball_distance;
+
+			msg.ball_rel_image_y = (1.0 * last_ball_msg.ball_center_y
+								/ (last_ball_msg.image_height / 2.0)) - 1.0;
+
+			//publish, where ball was detected
+			msg.ball_in_top_or_bottom_camera = last_ball_msg_position;
 		}
+		/*
+		float64 ball_rel_image_x
+		float64 ball_rel_image_y
+		uin8 ball_in_top_or_bottom_camera
+		*/
 
 		visionPublisher.publish(msg);
 	}

@@ -902,7 +902,7 @@ public:
 
       if (inMessage->ball_detected_in_lastsec) {
 
-        BALL_REL_TO_IMAGE = inMessage->ball_rel_image;
+        BALL_REL_TO_IMAGE = inMessage->ball_rel_image_x;
         BALL_DIST = inMessage->ball_distance;
 
         if (inMessage->left_marker_detected_in_lastsec && inMessage->right_marker_detected_in_lastsec) {

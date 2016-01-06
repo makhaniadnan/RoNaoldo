@@ -408,7 +408,9 @@ public:
 
 				ballMsg.ball_distance = ball_distance / 1000.0;
 				ballMsg.ball_center_x = (float) rect_center_x;
+				ballMsg.ball_center_y = (float) rect_center_y;
 				ballMsg.image_width = image.cols;
+				ballMsg.image_height = image.rows;
 
 				ballCenterPub.publish(ballMsg);
 			}

@@ -132,7 +132,7 @@ public:
         cout << "BALL_REL_TO_GOAL: ";
         cin >> msg.ball_rel_goal;
         cout << "BALL_REL_TO_IMAGE: ";
-        cin >> msg.ball_rel_image;
+        cin >> msg.ball_rel_image_x;
         cout << "BALL_VISIBLE: ";
         cin >> temp;
         if (temp == 0) {
