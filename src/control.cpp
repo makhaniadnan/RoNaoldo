@@ -37,6 +37,7 @@
 #include <boost/thread/thread.hpp>
 #include <boost/date_time.hpp>
 #include <boost/thread/locks.hpp>
+#include <naoqi_bridge_msgs/SpeechWithFeedbackActionGoal.h>
 #include <actionlib_msgs/GoalStatusArray.h>
 #include <tf/transform_broadcaster.h>
 #include <aruco/aruco.h>
@@ -112,6 +113,7 @@ public:
     int iterCount = 0;
 
     // State Machine:
+    bool FINISHED = false;
     int STATE = STATE_INIT;
     bool TRANS[3] = {false};
 
@@ -120,9 +122,11 @@ public:
     float BALL_DIST = 0;
     bool DATA_IS_NEW = false;
     float BALL_REL_TO_IMAGE = 0;
+    float BALL_REL_TO_IMAGE_Y = 0;
     bool BALL_VISIBLE = false;
     bool LEFT_POST_VISIBLE = false;
     bool RIGHT_POST_VISIBLE = false;
+    int BALL_TOP_BOTTOM_CAMERA = 0;
 
     // Control Paramers (ORIENTATION CONTROLLER):
     bool ORIENTATION_OK   = false;
@@ -138,6 +142,7 @@ public:
     float APP_POS_GAIN  = 0;
     float APP_POS_TOL   = 0.3;
     //bool BALL_OFFSET_CORRECTED = false;
+    bool APP_HEAD_DOWN = false;
 
     // Control Parameters (KICK CONTROLLER):
     // TODO
@@ -151,14 +156,18 @@ public:
     ros::Publisher jointCommandPub;
     int JOINT_ACTION_STATUS = 0;
 
+    // Speech:
+    ros::Publisher speechPub;
+
     Control(NodeHandle n) {
 
-		nh_ = n;
+		  nh_ = n;
 
       // Setup Publisher and Subscriber:
   		controlSub = nh_.subscribe("relative_position", 1, &Control::visionMessageCallback, this);
   		controlPub = nh_.advertise<RoNAOldo::controlMsg>("controlMessage", 1);
       walk_pub = nh_.advertise<geometry_msgs::Pose2D>("/nao/cmd_pose", 1);
+      speechPub = nh_.advertise<naoqi_bridge_msgs::SpeechWithFeedbackActionGoal>("/nao/speech_action/goal", 1);
       //moveStatus = nh_.subscribe("/nao/joint_angles_status/status", 1, &Control::bodyPoseCallback, this);
       jointStatesSub = nh_.subscribe("/nao/joint_states", 1, &Control::jointStatusCallback, this);
       jointActionStatusSub = nh_.subscribe("/nao/joint_angles_action/status",1, &Control::jointActionStatusCallback, this);
@@ -179,7 +188,7 @@ public:
     void main_loop() {
   		ros::Rate rate_sleep(1);
 
-  		while(nh_.ok()) {
+  		while(nh_.ok() && FINISHED == false) {
 
         if (DATA_IS_NEW == true) {
 
@@ -195,6 +204,7 @@ public:
             cout << "    \033[3mBALL_DST            \033[0m : " << setw(10) << BALL_DIST << endl;
             cout << "    \033[3mBALL_REL_TO_GOAL    \033[0m : " << setw(10) << BALL_REL_TO_GOAL << endl;
             cout << "    \033[3mBALL_REL_TO_IMAGE   \033[0m : " << setw(10) << BALL_REL_TO_IMAGE << endl;
+            cout << "    \033[3mBALL_REL_TO_IMAGE_Y \033[0m : " << setw(10) << BALL_REL_TO_IMAGE_Y << endl;
             cout << "\033[1;36mCurrent Logic Values:\033[0m" << endl;
             cout << "    \033[3mBALL_VISIBLE        \033[0m : " << setw(10) << boolToString(BALL_VISIBLE) << endl;
             cout << "    \033[3mLEFT_POST_VISIBLE   \033[0m : " << setw(10) << boolToString(LEFT_POST_VISIBLE) << endl;
@@ -541,23 +551,43 @@ public:
         // Check if orientation is ok:
         if (BALL_REL_TO_IMAGE >= -ORI_ORI_TOL && BALL_REL_TO_IMAGE <= ORI_ORI_TOL) {
 
-          // Check if position is ok:
-          if (BALL_DIST < APP_POS_TOL) {
+          if (DEBUG == true) {
+            //cout << "\033[1;33mHead: \033[0m" << APP_STATE << endl;
+          }
+          if (/*BALL_TOP_BOTTOM_CAMERA == 1 &&*/ BALL_REL_TO_IMAGE_Y < 0.5f && APP_HEAD_DOWN == false) {
 
-            // APPROACH CONTROL done:
+            controlAppPos(0.2);
+
+          }
+          else if (/*BALL_TOP_BOTTOM_CAMERA == 1 &&*/ BALL_REL_TO_IMAGE_Y >= 0.5f && APP_HEAD_DOWN == false) {
+
+            // Turn Head down:
+            sensor_msgs::JointState turnHead;
+            turnHead.name.push_back("HeadPitch");
+            turnHead.position.push_back(0.375);
+            mooveJoints(turnHead, 0.1, 1);
+
+            // Set APP_HEAD_DOWN to true:
+            APP_HEAD_DOWN = true;
+
+          }
+          else if (/*BALL_TOP_BOTTOM_CAMERA == 1 &&*/ BALL_REL_TO_IMAGE_Y < 0.3f && APP_HEAD_DOWN == true) {
+
+            controlAppPos(0.05);
+
+          }
+          else if (/*BALL_TOP_BOTTOM_CAMERA == 1 &&*/ BALL_REL_TO_IMAGE_Y < 0.55f && APP_HEAD_DOWN == true) {
+
+            walker(0.01, 0, 0);
+
+          }
+          else if (/*BALL_TOP_BOTTOM_CAMERA == 1 &&*/ BALL_REL_TO_IMAGE_Y >= 0.55f && APP_HEAD_DOWN == true) {
+
+            // Approach done:
             APPROACH_OK = true;
 
-            if (DEBUG == true) {
-              cout << "\033[1;33mApproach control is now done!\033[0m" << endl;
-            }
-
           }
-          else {
 
-            // Perform ORI-POS-CONTROL:
-            controlAppPos();
-
-          }
         }
         else {
 
@@ -573,6 +603,21 @@ public:
         // Perform Kick:
         controlKick();
 
+        // Terminate Node:
+        FINISHED == true;
+
+        // Goal cheer:
+        speak("ro NAO eldo scored.");
+        sensor_msgs::JointState cheer;
+        cheer.name.push_back("LShoulderPitch");
+        cheer.position.push_back(-1.6);
+        cheer.name.push_back("RShoulderPitch");
+        cheer.position.push_back(-1.6);
+        mooveJoints(cheer, 0.3, 0);
+
+        // Exit:
+        std::exit(0);
+
       }
 
     }
@@ -581,7 +626,7 @@ public:
     void controlOri() {
 
       // calculate gain
-      ORI_ORI_GAIN = abs(BALL_REL_TO_IMAGE) / 1.0;
+      ORI_ORI_GAIN = abs(BALL_REL_TO_IMAGE) / 1.25;
 
       // Check where ball is relative to image
       if (BALL_REL_TO_IMAGE > 0) {      // right side in image
@@ -613,7 +658,7 @@ public:
       if (BALL_REL_TO_GOAL > 0) {       // right of goal
         if (DEBUG == true) {
           cout << "\033[1;33mPerforming Position Control:\033[0m" << endl;
-          cout << "    \033[3mcondition            \033[0m: " << " (BALL_REL_To_IMAGE > 0)" << endl;
+          cout << "    \033[3mcondition            \033[0m: " << " (BALL_REL_TO_IMAGE > 0)" << endl;
           cout << "    \033[3mPOSITION_GAIN        \033[0m: " << setw(10) << ORI_POS_GAIN  << endl;
         }
         walker(0, -ORI_POS_GAIN, 0);
@@ -621,7 +666,7 @@ public:
       else {                            // left of goal
         if (DEBUG == true) {
           cout << "\033[1;33mPerforming Position Control:\033[0m" << endl;
-          cout << "    \033[3mcondition            \033[0m: " << " (BALL_REL_To_IMAGE < 0)" << endl;
+          cout << "    \033[3mcondition            \033[0m: " << " (BALL_REL_TO_IMAGE < 0)" << endl;
           cout << "    \033[3mPOSITION_GAIN        \033[0m: " << setw(10) << ORI_POS_GAIN  << endl;
         }
         walker(0, ORI_POS_GAIN, 0);
@@ -630,28 +675,11 @@ public:
     }
 
     // APPROACHING CONTROLLER:
-    void controlAppPos() {
+    void controlAppPos(double gainMult) {
 
       if (DEBUG == true) {
         cout << "\033[1;33mPerforming Approach Control: \033[0m" << endl;
       }
-
-      // Correct ball offset if not already done:
-      //if (BALL_OFFSET_CORRECTED == false) {
-
-      //  if (DEBUG == true) {
-      //    cout << "Correcting ball offset\033[0m" << endl;
-      //  }
-
-      // Walk to the left:
-      //  walker(0, 0.05, 0);
-
-      // Set BALL_OFFSET_CORRECTED to true:
-      //  BALL_OFFSET_CORRECTED = true;
-
-      //}
-      // Approach control:
-      //else {
 
       // Approach gain:
       APP_POS_GAIN = BALL_DIST * 0.2;
@@ -709,6 +737,9 @@ public:
       alignHead.position.push_back(0.0);
       mooveJoints(alignHead, 0.2, 0);
       sleep(1);
+
+      // Say Hello:
+      speak("hello my name is ro NAO eldo");
 
     }
 
@@ -798,6 +829,10 @@ public:
       if (DEBUG == true) {
         cout << "\033[1;33mPerforming Kick Control:\033[0m" << endl;
       }
+
+      // Go 5cm left:
+      walker(0, 0.05, 0);
+      sleep(2);
 
       // Lean zo left:
       sensor_msgs::JointState oneFoot1;
@@ -903,7 +938,9 @@ public:
       if (inMessage->ball_detected_in_lastsec) {
 
         BALL_REL_TO_IMAGE = inMessage->ball_rel_image_x;
+        BALL_REL_TO_IMAGE_Y = inMessage->ball_rel_image_y;
         BALL_DIST = inMessage->ball_distance;
+        BALL_TOP_BOTTOM_CAMERA = inMessage->ball_in_top_or_bottom_camera;
 
         if (inMessage->left_marker_detected_in_lastsec && inMessage->right_marker_detected_in_lastsec) {
 
@@ -920,15 +957,6 @@ public:
       DATA_IS_NEW = true;
 
     }
-
-    //void bodyPoseCallback(const actionlib_msgs::GoalStatusArray::ConstPtr &inMessage) {
-
-        //cout << "Pose status size: " << inMessage->status_list.size() << endl;
-        //if(!inMessage->status_list.empty()) {
-        //  cout << "Pose Status: " << inMessage->status_list.at(0).status; // << inMessage->goal << endl;
-        //}
-
-    //}
 
     void jointStatusCallback(const sensor_msgs::JointState::ConstPtr &jointState) {
 
@@ -1005,6 +1033,15 @@ public:
 		  if(!msg->status_list.empty()) {
 			  JOINT_ACTION_STATUS = (int)msg->status_list.at(0).status;
 		  }
+    }
+
+    void speak(string sentence) {
+
+      naoqi_bridge_msgs::SpeechWithFeedbackActionGoal speakMsg;
+      speakMsg.goal_id.id = "Speak-" + to_string(iterCount);
+      speakMsg.goal.say = sentence;
+      speechPub.publish(speakMsg);
+
     }
 
 };

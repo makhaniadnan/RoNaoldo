@@ -133,6 +133,10 @@ public:
         cin >> msg.ball_rel_goal;
         cout << "BALL_REL_TO_IMAGE: ";
         cin >> msg.ball_rel_image_x;
+        cout << "BALL_REL_TO_IMAGE_Y: ";
+        cin >> msg.ball_rel_image_y;
+        cout << "BALL_TOP_BOTTOM_CAMERA: ";
+        cin >> msg.ball_in_top_or_bottom_camera;
         cout << "BALL_VISIBLE: ";
         cin >> temp;
         if (temp == 0) {

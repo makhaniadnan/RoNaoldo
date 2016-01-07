@@ -13,7 +13,6 @@ find_package(catkin REQUIRED cmake_modules COMPONENTS
   cv_bridge
   image_transport
   message_generation
-  aruco
 )
 
 add_message_files(
@@ -35,7 +34,6 @@ catkin_package(
 include_directories(
   ${catkin_INCLUDE_DIRS}
 )
-
 add_executable(RoNAOldo_ballVision src/visionBall.cpp)
 target_link_libraries(RoNAOldo_ballVision ${catkin_LIBRARIES})
 add_dependencies(RoNAOldo_ballVision RoNAOldo_generate_message_cpp)
