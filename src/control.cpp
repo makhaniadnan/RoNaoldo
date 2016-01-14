@@ -47,6 +47,7 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <geometry_msgs/Pose2D.h>
 #include <opencv2/highgui/highgui.hpp>
+#include <ctime>
 
 // Include customn messages:
 #include "RoNAOldo/visionMsg.h"
@@ -102,6 +103,11 @@ public:
     // walker publisher:
     ros::Publisher walk_pub;
 
+    // clock:
+    clock_t CLOCK_START;
+    double ALIVE_TIME;
+    double LAST_MESSAGE;
+
     // movement status Subscriber:
     //ros::Subscriber moveStatus;
 
@@ -143,9 +149,12 @@ public:
     float APP_POS_TOL   = 0.3;
     //bool BALL_OFFSET_CORRECTED = false;
     bool APP_HEAD_DOWN = false;
+    // ball search Counter
+    int bs_counter = 0;
+    bool HEAD_DOWN = false;
 
-    // Control Parameters (KICK CONTROLLER):
-    // TODO
+    // Initialtion:
+    bool INITIALIZED = false;
 
     // Joint States:
     sensor_msgs::JointState LEFT_ARM_STATE;
@@ -177,6 +186,10 @@ public:
       stop_thread=false;
       spin_thread=new boost::thread(&spinThread);
 
+      // Start the clock:
+      CLOCK_START = clock();
+      LAST_MESSAGE = CLOCK_START / (double)CLOCKS_PER_SEC;
+
     }
 
     ~Control() {
@@ -190,6 +203,9 @@ public:
 
   		while(nh_.ok() && FINISHED == false) {
 
+        // Calculate Current Time:
+        ALIVE_TIME = (clock() - CLOCK_START) / (double)CLOCKS_PER_SEC;
+
         if (DATA_IS_NEW == true) {
 
         // Count Iteration:
@@ -198,6 +214,7 @@ public:
           if (DEBUG == true) {
             cout << "-------------------------------------------------------" << endl;
             cout << "\033[1;34mNew Iteration:\033[0m #" << setw(10) << iterCount << endl;
+            cout << "    \033[3mTIME                \033[0m : " << setw(10) << ALIVE_TIME << endl;
             cout << endl;
             cout << "\033[1;34mCurent State:\033[0m " << stateToString(STATE) << endl;
             cout << "\033[1;36mCurrent Values:\033[0m" << endl;
@@ -244,18 +261,70 @@ public:
 
             case STATE_BALL_SEARCH:
               if (boolCompare(TRANS, T, T, T)) {
+
+                // Turn Head straight and walk back:
+                if (HEAD_DOWN) {
+                  sensor_msgs::JointState turnHead;
+                  turnHead.name.push_back("HeadPitch");
+                  turnHead.position.push_back(0.0);
+                  mooveJoints(turnHead, 0.1, 0);
+                  bs_counter = 0;
+                  sleep(1);
+                  walker(-0.5, 0, 0);
+                  HEAD_DOWN = false;
+                }
+
                 transState(STATE_CONTROL);
               }
               else if (boolCompare(TRANS, F, X, X)) {
                 transState(STATE_BALL_SEARCH);
               }
               else if (boolCompare(TRANS, T, F, F)) {
+
+                // Turn Head straight and walk back:
+                if (HEAD_DOWN) {
+                  sensor_msgs::JointState turnHead;
+                  turnHead.name.push_back("HeadPitch");
+                  turnHead.position.push_back(0.0);
+                  mooveJoints(turnHead, 0.1, 0);
+                  bs_counter = 0;
+                  sleep(1);
+                  walker(-0.5, 0, 0);
+                  HEAD_DOWN = false;
+                }
+
                 transState(STATE_GOAL_SEARCH);
               }
               else if (boolCompare(TRANS, T, F, T)) {
+
+                // Turn Head straight and walk back:
+                if (HEAD_DOWN) {
+                  sensor_msgs::JointState turnHead;
+                  turnHead.name.push_back("HeadPitch");
+                  turnHead.position.push_back(0.0);
+                  mooveJoints(turnHead, 0.1, 0);
+                  bs_counter = 0;
+                  sleep(1);
+                  walker(-0.5, 0, 0);
+                  HEAD_DOWN = false;
+                }
+
                 transState(STATE_RIGHT_FOUND);
               }
               else if (boolCompare(TRANS, T, T, F)) {
+
+                // Turn Head straight and walk back:
+                if (HEAD_DOWN) {
+                  sensor_msgs::JointState turnHead;
+                  turnHead.name.push_back("HeadPitch");
+                  turnHead.position.push_back(0.0);
+                  mooveJoints(turnHead, 0.1, 0);
+                  bs_counter = 0;
+                  sleep(1);
+                  walker(-0.5, 0, 0);
+                  HEAD_DOWN = false;
+                }
+
                 transState(STATE_LEFT_FOUND);
               }
               else {
@@ -370,6 +439,24 @@ public:
 
           // DATA_IS_NEW to false:
           DATA_IS_NEW = false;
+
+          // Calculate time of last Iteration:
+          LAST_MESSAGE = (clock() - CLOCK_START) / (double)CLOCKS_PER_SEC;
+
+        }
+
+        else {
+
+          // Do Ball Search if no message was received in the last three seconds:
+          if (ALIVE_TIME - LAST_MESSAGE >= 3.0f) {
+            //cout << "TIME SINCE LAST MESSAGE: " << ALIVE_TIME - LAST_MESSAGE << cout;
+            if (INITIALIZED) {
+              transState(STATE_BALL_SEARCH);
+            }
+            else {
+              init();
+            }
+          }
 
         }
 
@@ -554,12 +641,12 @@ public:
           if (DEBUG == true) {
             //cout << "\033[1;33mHead: \033[0m" << APP_STATE << endl;
           }
-          if (/*BALL_TOP_BOTTOM_CAMERA == 1 &&*/ BALL_REL_TO_IMAGE_Y < 0.5f && APP_HEAD_DOWN == false) {
+          if (/*BALL_TOP_BOTTOM_CAMERA == 1 &&*/ BALL_REL_TO_IMAGE_Y < 0.45f && APP_HEAD_DOWN == false) {
 
-            controlAppPos(0.2);
+            controlAppPos(0.15);
 
           }
-          else if (/*BALL_TOP_BOTTOM_CAMERA == 1 &&*/ BALL_REL_TO_IMAGE_Y >= 0.5f && APP_HEAD_DOWN == false) {
+          else if (/*BALL_TOP_BOTTOM_CAMERA == 1 &&*/ BALL_REL_TO_IMAGE_Y >= 0.45f && APP_HEAD_DOWN == false) {
 
             // Turn Head down:
             sensor_msgs::JointState turnHead;
@@ -576,12 +663,12 @@ public:
             controlAppPos(0.05);
 
           }
-          else if (/*BALL_TOP_BOTTOM_CAMERA == 1 &&*/ BALL_REL_TO_IMAGE_Y < 0.55f && APP_HEAD_DOWN == true) {
+          else if (/*BALL_TOP_BOTTOM_CAMERA == 1 &&*/ BALL_REL_TO_IMAGE_Y < 0.53f && APP_HEAD_DOWN == true) {
 
-            walker(0.01, 0, 0);
+            walker(0.02, 0, 0);
 
           }
-          else if (/*BALL_TOP_BOTTOM_CAMERA == 1 &&*/ BALL_REL_TO_IMAGE_Y >= 0.55f && APP_HEAD_DOWN == true) {
+          else if (/*BALL_TOP_BOTTOM_CAMERA == 1 &&*/ BALL_REL_TO_IMAGE_Y >= 0.53f && APP_HEAD_DOWN == true) {
 
             // Approach done:
             APPROACH_OK = true;
@@ -610,10 +697,22 @@ public:
         speak("ro NAO eldo scored.");
         sensor_msgs::JointState cheer;
         cheer.name.push_back("LShoulderPitch");
-        cheer.position.push_back(-1.6);
+        cheer.position.push_back(-1.3);
         cheer.name.push_back("RShoulderPitch");
-        cheer.position.push_back(-1.6);
+        cheer.position.push_back(-1.3);
         mooveJoints(cheer, 0.3, 0);
+
+        // End cheer
+        sensor_msgs::JointState cheer2;
+        cheer2.name.push_back("LShoulderPitch");
+        cheer2.position.push_back(1.0);
+        cheer2.name.push_back("RShoulderPitch");
+        cheer2.position.push_back(1.0);
+        mooveJoints(cheer, 0.03, 0);
+
+        // Neutral Position:
+        sleep(3);
+        walker(0.01, 0, 0);
 
         // Exit:
         std::exit(0);
@@ -694,8 +793,64 @@ public:
     // Ball search:
     void ballSearch() {
 
-      // Turn left:
-      walker(0, 0, 1);
+      // Turning Sequence:
+      if (bs_counter == 0) {
+        sensor_msgs::JointState turnHead;
+        turnHead.name.push_back("HeadYaw");
+        turnHead.position.push_back(0.0);
+        mooveJoints(turnHead, 0.2, 0);
+        walker(0, 0, 1.5);
+        bs_counter++;
+      }
+      else if (bs_counter == 1) {
+        walker(0, 0, 1.5);
+        bs_counter++;
+      }
+      else if (bs_counter == 2) {
+        walker(0, 0, -3);
+        walker(0, 0, -1.5);
+        bs_counter++;
+      }
+      else if (bs_counter == 3) {
+        walker(0, 0, -1.5);
+        bs_counter++;
+      }
+      else if (bs_counter == 4) {
+
+        // Turn Head down:
+        sensor_msgs::JointState turnHead;
+        turnHead.name.push_back("HeadPitch");
+        turnHead.position.push_back(0.375);
+        mooveJoints(turnHead, 0.1, 1);
+        HEAD_DOWN = true;
+
+        // Reset Bullshit counter:
+        bs_counter++;
+
+      }
+      else if (bs_counter == 5) {
+        walker(0, 0, 1.5);
+        bs_counter++;
+      }
+      else if (bs_counter == 6) {
+        walker(0, 0, 1.5);
+        bs_counter++;
+      }
+      else if (bs_counter == 7) {
+        walker(0, 0, -3);
+        walker(0, 0, -1.5);
+        bs_counter++;
+      }
+      else if (bs_counter == 8) {
+        walker(0, 0, -1.5);
+        bs_counter++;
+      }
+      else if (bs_counter == 9) {
+        bs_counter = 0;
+        speak("I can not find the Ball");
+        cout << "ERROR: Cannot find the ball" << endl;
+        std::exit(0);
+      }
 
     }
 
@@ -741,6 +896,9 @@ public:
       // Say Hello:
       speak("hello my name is ro NAO eldo");
 
+      // Set Initialized to true:
+      INITIALIZED = true;
+
     }
 
     void goalSearch() {
@@ -765,8 +923,9 @@ public:
         sleep(1);
 
         // Check if right goal post found:
-        DATA_IS_NEW = false;
-        while(!DATA_IS_NEW) {}
+        //DATA_IS_NEW = false;
+        //while(!DATA_IS_NEW) {}
+        sleep(1);
         if(RIGHT_POST_VISIBLE == true) {
           GOAL_FOUND = true;
           goto POSTFOUND;
@@ -789,8 +948,9 @@ public:
         sleep(1);
 
         // Check if left goal post found:
-        DATA_IS_NEW = false;
-        while(!DATA_IS_NEW) {}
+        //DATA_IS_NEW = false;
+        //while(!DATA_IS_NEW) {}
+        sleep(1);
         if(LEFT_POST_VISIBLE == true) {
           GOAL_FOUND = true;
           goto POSTFOUND;
@@ -817,8 +977,9 @@ public:
       }
 
       // Orientation Control:
-      DATA_IS_NEW = false;
-      while(!DATA_IS_NEW) {}
+      //DATA_IS_NEW = false;
+      //while(!DATA_IS_NEW) {}
+      sleep(1);
       controlOri();
 
     }
@@ -831,7 +992,7 @@ public:
       }
 
       // Go 5cm left:
-      walker(0, 0.05, 0);
+      walker(0, 0.065, 0);
       sleep(2);
 
       // Lean zo left:
@@ -944,7 +1105,7 @@ public:
 
         if (inMessage->left_marker_detected_in_lastsec && inMessage->right_marker_detected_in_lastsec) {
 
-          BALL_REL_TO_GOAL = inMessage->ball_rel_goal;
+          BALL_REL_TO_GOAL = saturate(inMessage->ball_rel_goal, -3.0, 3.0);
 
         }
 
@@ -1041,6 +1202,20 @@ public:
       speakMsg.goal_id.id = "Speak-" + to_string(iterCount);
       speakMsg.goal.say = sentence;
       speechPub.publish(speakMsg);
+
+    }
+
+    double saturate(double val, double min, double max) {
+
+        if(val < min) {
+          return min;
+        }
+        else if (val > max) {
+          return max;
+        }
+        else {
+          return val;
+        }
 
     }
 
