@@ -94,6 +94,10 @@ public:
     // ros handler
     ros::NodeHandle nh_;
 
+    // Stiffness Services:
+    ros::ServiceClient stiffnessEnable;
+    ros::ServiceClient stiffnessDisable;
+
     // subscriber
     ros::Subscriber controlSub;
 
@@ -102,6 +106,9 @@ public:
 
     // walker publisher:
     ros::Publisher walk_pub;
+
+    // Tactile Buttons Subscriber:
+    ros::Subscriber tactileButtons;
 
     // clock:
     clock_t CLOCK_START;
@@ -155,6 +162,7 @@ public:
 
     // Initialtion:
     bool INITIALIZED = false;
+    bool loop = true;
 
     // Joint States:
     sensor_msgs::JointState LEFT_ARM_STATE;
@@ -177,10 +185,14 @@ public:
   		controlPub = nh_.advertise<RoNAOldo::controlMsg>("controlMessage", 1);
       walk_pub = nh_.advertise<geometry_msgs::Pose2D>("/nao/cmd_pose", 1);
       speechPub = nh_.advertise<naoqi_bridge_msgs::SpeechWithFeedbackActionGoal>("/nao/speech_action/goal", 1);
-      //moveStatus = nh_.subscribe("/nao/joint_angles_status/status", 1, &Control::bodyPoseCallback, this);
       jointStatesSub = nh_.subscribe("/nao/joint_states", 1, &Control::jointStatusCallback, this);
       jointActionStatusSub = nh_.subscribe("/nao/joint_angles_action/status",1, &Control::jointActionStatusCallback, this);
       jointCommandPub = nh_.advertise<naoqi_bridge_msgs::JointAnglesWithSpeedActionGoal>("/nao/joint_angles_action/goal", 1);
+      tactileButtons = nh_.subscribe("/nao/tactile_touch",1, &Control::tactileCallback, this);
+
+      // Setup Stiffness Services:
+      stiffnessEnable = nh_.serviceClient<std_srvs::Empty>("/nao/body_stiffness/enable");
+      stiffnessDisable = nh_.serviceClient<std_srvs::Empty>("/nao/body_stiffness/disable");
 
       // To keep the node alive:
       stop_thread=false;
@@ -205,6 +217,13 @@ public:
 
         // Calculate Current Time:
         ALIVE_TIME = (clock() - CLOCK_START) / (double)CLOCKS_PER_SEC;
+
+        // Disbale loop:
+        if (loop  == false) {
+          cout << "\033[1;31mPAUSED\033[0m - Time: " << setw(10) << ALIVE_TIME << endl;
+          sleep(1);
+          continue;
+        }
 
         if (DATA_IS_NEW == true) {
 
@@ -263,12 +282,12 @@ public:
               if (boolCompare(TRANS, T, T, T)) {
 
                 // Turn Head straight and walk back:
+                bs_counter = 0;
                 if (HEAD_DOWN) {
                   sensor_msgs::JointState turnHead;
                   turnHead.name.push_back("HeadPitch");
                   turnHead.position.push_back(0.0);
                   mooveJoints(turnHead, 0.1, 0);
-                  bs_counter = 0;
                   sleep(1);
                   walker(-0.5, 0, 0);
                   HEAD_DOWN = false;
@@ -282,12 +301,12 @@ public:
               else if (boolCompare(TRANS, T, F, F)) {
 
                 // Turn Head straight and walk back:
+                bs_counter = 0;
                 if (HEAD_DOWN) {
                   sensor_msgs::JointState turnHead;
                   turnHead.name.push_back("HeadPitch");
                   turnHead.position.push_back(0.0);
                   mooveJoints(turnHead, 0.1, 0);
-                  bs_counter = 0;
                   sleep(1);
                   walker(-0.5, 0, 0);
                   HEAD_DOWN = false;
@@ -298,12 +317,12 @@ public:
               else if (boolCompare(TRANS, T, F, T)) {
 
                 // Turn Head straight and walk back:
+                bs_counter = 0;
                 if (HEAD_DOWN) {
                   sensor_msgs::JointState turnHead;
                   turnHead.name.push_back("HeadPitch");
                   turnHead.position.push_back(0.0);
                   mooveJoints(turnHead, 0.1, 0);
-                  bs_counter = 0;
                   sleep(1);
                   walker(-0.5, 0, 0);
                   HEAD_DOWN = false;
@@ -314,12 +333,12 @@ public:
               else if (boolCompare(TRANS, T, T, F)) {
 
                 // Turn Head straight and walk back:
+                bs_counter = 0;
                 if (HEAD_DOWN) {
                   sensor_msgs::JointState turnHead;
                   turnHead.name.push_back("HeadPitch");
                   turnHead.position.push_back(0.0);
                   mooveJoints(turnHead, 0.1, 0);
-                  bs_counter = 0;
                   sleep(1);
                   walker(-0.5, 0, 0);
                   HEAD_DOWN = false;
@@ -694,7 +713,7 @@ public:
         FINISHED == true;
 
         // Goal cheer:
-        speak("ro NAO eldo scored.");
+        speak("ro NAO eldo scored. It took me " + std::to_string((int)ALIVE_TIME) + " seconds.");
         sensor_msgs::JointState cheer;
         cheer.name.push_back("LShoulderPitch");
         cheer.position.push_back(-1.3);
@@ -708,7 +727,7 @@ public:
         cheer2.position.push_back(1.0);
         cheer2.name.push_back("RShoulderPitch");
         cheer2.position.push_back(1.0);
-        mooveJoints(cheer, 0.03, 0);
+        mooveJoints(cheer2, 0.3, 0);
 
         // Neutral Position:
         sleep(3);
@@ -799,20 +818,20 @@ public:
         turnHead.name.push_back("HeadYaw");
         turnHead.position.push_back(0.0);
         mooveJoints(turnHead, 0.2, 0);
-        walker(0, 0, 1.5);
+        walker(0, 0, 1.2);
         bs_counter++;
       }
       else if (bs_counter == 1) {
-        walker(0, 0, 1.5);
+        walker(0, 0, 1.2);
         bs_counter++;
       }
       else if (bs_counter == 2) {
-        walker(0, 0, -3);
-        walker(0, 0, -1.5);
+        walker(0, 0, -2.4);
+        walker(0, 0, -1.2);
         bs_counter++;
       }
       else if (bs_counter == 3) {
-        walker(0, 0, -1.5);
+        walker(0, 0, -1.2);
         bs_counter++;
       }
       else if (bs_counter == 4) {
@@ -829,20 +848,20 @@ public:
 
       }
       else if (bs_counter == 5) {
-        walker(0, 0, 1.5);
+        walker(0, 0, 1.2);
         bs_counter++;
       }
       else if (bs_counter == 6) {
-        walker(0, 0, 1.5);
+        walker(0, 0, 1.2);
         bs_counter++;
       }
       else if (bs_counter == 7) {
-        walker(0, 0, -3);
-        walker(0, 0, -1.5);
+        walker(0, 0, -2.4);
+        walker(0, 0, -1.2);
         bs_counter++;
       }
       else if (bs_counter == 8) {
-        walker(0, 0, -1.5);
+        walker(0, 0, -1.2);
         bs_counter++;
       }
       else if (bs_counter == 9) {
@@ -881,6 +900,10 @@ public:
     // Init:
     void init() {
 
+      // Enable Stiffness:
+      std_srvs::Empty srv;
+      stiffnessEnable.call(srv);
+
       // Stand up:
       walker(0.01, 0, 0);
 
@@ -898,6 +921,9 @@ public:
 
       // Set Initialized to true:
       INITIALIZED = true;
+
+      // Pause Control:
+      loop = false;
 
     }
 
@@ -969,10 +995,10 @@ public:
       if (GOAL_FOUND == true) {
         walker(0, 0, angle);
         if (angle > 0) {
-          walker(0, -0.5, 0);
+          walker(0, -0.35, 0);
         }
         else {
-          walker(0, 0.5, 0);
+          walker(0, 0.35, 0);
         }
       }
 
@@ -1216,6 +1242,34 @@ public:
         else {
           return val;
         }
+
+    }
+
+    void tactileCallback(const naoqi_bridge_msgs::TactileTouch::ConstPtr& tactileState) {
+
+      // Rear Button: Disable Stiffness
+      if(tactileState->button==naoqi_bridge_msgs::TactileTouch::buttonRear) {
+			  if(tactileState->state==naoqi_bridge_msgs::TactileTouch::statePressed){
+				  std_srvs::Empty srv;
+				  stiffnessEnable.call(srv);
+			  }
+		  }
+
+      // Middle Button: Pause/Unpause Control
+      else if (tactileState->button==naoqi_bridge_msgs::TactileTouch::buttonMiddle) {
+        if(tactileState->state==naoqi_bridge_msgs::TactileTouch::statePressed){
+          DATA_IS_NEW = false;
+				  loop = !loop;
+			  }
+      }
+
+      // Front Button: Enable Stiffness
+      else if (tactileState->button==naoqi_bridge_msgs::TactileTouch::buttonFront) {
+        if(tactileState->state==naoqi_bridge_msgs::TactileTouch::statePressed){
+				  std_srvs::Empty srv;
+				  stiffnessDisable.call(srv);
+			  }
+      }
 
     }
 
